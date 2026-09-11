@@ -1,5 +1,7 @@
 # LLM anatomy
 
+[Open the live 3D lab](https://llm-anatomy-wine.vercel.app) · [GitHub repository](https://github.com/APareek89/llm-anatomy) (private)
+
 Four architecture tabs with real miniature-model inference and training: **Qwen3.8**, **OpenAI gpt-oss**, **Meta Llama 3.2**, and **Google Gemma 3**. This is an interactive 3D learning lab. The predictions, activations, expert routes, gradients and updates are computed from each model’s own weights; they are not scripted.
 
 **These are teaching models, not official pretrained checkpoints.** Each miniature ships with weights genuinely trained for 300 steps on the same 30-sentence, 24-word corpus. They demonstrate architecture and learning, not the language quality of the released models. Qwen’s Explore tab additionally provides the original checkpoint’s full metadata and authentic sampled vendor weights. The real Qwen tokenizer remains available as a clearly labelled comparison across tabs.
@@ -107,4 +109,6 @@ Architecture and recurrent equations follow the [pinned Transformers implementat
 
 ## Static deployment
 
-Build with `npm run build`. The site needs only static hosting; all miniature model computations run in browser workers. `scripts/deploy-vercel.py` uploads only `dist/`, reads the Vercel token from a local secrets file and never writes it into the site. Its private deployment receipt is excluded from Git. No API key is required by visitors.
+The production site is [llm-anatomy-wine.vercel.app](https://llm-anatomy-wine.vercel.app). Vercel is connected to the private GitHub repository and automatically deploys pushes to `master`. The committed `vercel.json` selects Vite, runs `npm run build` and publishes `dist/`.
+
+The site needs only static hosting; all miniature model computations run in browser workers. No API key is required by visitors. For a manual deployment, `scripts/deploy-vercel.py` uploads only `dist/`, reads a deployment-authorized Vercel token from a local secrets file and never writes it into the site. Its private deployment receipt is excluded from Git.
