@@ -1,28 +1,53 @@
 /** Node fallback and reproducible offline default bundle. Refuses full-shard responses. */
 import { readFile, writeFile, mkdir, stat } from 'node:fs/promises';
+import { openSync, closeSync, writeFileSync, readFileSync, unlinkSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { resolve } from 'node:path';
-import { REPO, REVISION, DOWNLOAD_BUDGET, computeStats, scalarBytes, decodeValues, matrixShape, type ModelManifest, type TensorMeta, type TileFile, type Stats } from '../src/data/hf.ts';
+import { REPO, REVISION, DOWNLOAD_BUDGET, computeStats, scalarBytes, decodeValues, matrixShape, validateRangeHeaders, type ModelManifest, type TensorMeta, type TileFile, type Stats } from '../src/data/hf.ts';
 import { RealTokenizer } from '../src/data/tokenizer.ts';
 const root = resolve(import.meta.dirname, '..'), data = resolve(root, 'public/data'), weights = resolve(root, 'public/weights');
 await mkdir(data, { recursive: true }); await mkdir(weights, { recursive: true });
+// A single ledger must never be read and overwritten by two concurrent prefetch processes.
+const lockPath = resolve(data, '.prefetch.lock');
+try {
+  const lock = openSync(lockPath, 'wx'); writeFileSync(lock, String(process.pid)); closeSync(lock);
+} catch (error) {
+  if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+  let pid = 0; try { pid = Number(readFileSync(lockPath, 'utf8')); } catch { /* Treat uncertain ownership as busy. */ }
+  let alive = true; if (Number.isSafeInteger(pid) && pid > 0) { try { process.kill(pid, 0); } catch (e) { if ((e as NodeJS.ErrnoException).code === 'ESRCH') alive = false; } }
+  if (!alive) { unlinkSync(lockPath); throw new Error('Removed a stale prefetch lock. Re-run the same command; no files were downloaded.'); }
+  throw new Error('Another prefetch process owns the download ledger. Wait for it to finish.');
+}
+process.on('exit', () => { try { if (readFileSync(lockPath, 'utf8') === String(process.pid)) unlinkSync(lockPath); } catch { /* Already released. */ } });
 const base = `https://huggingface.co/${REPO}/resolve/${REVISION}/`;
 const sha = (b: Uint8Array | string) => createHash('sha256').update(b).digest('hex');
 const exists = async (p: string) => !!await stat(p).catch(() => null);
-interface Ledger { revision: string; limitBytes: number; downloadedBytes: number; requests: { resource: string; bytes: number; time: string; range?: string }[] }
+interface Ledger { revision: string; limitBytes: number; downloadedBytes: number; importedBrowserBytes?: number; requests: { resource: string; bytes: number; time: string; range?: string }[] }
 const ledgerPath = resolve(data, 'download-ledger.json');
-let ledger: Ledger = await exists(ledgerPath) ? JSON.parse(await readFile(ledgerPath, 'utf8')) : { revision: REVISION, limitBytes: DOWNLOAD_BUDGET, downloadedBytes: 140847, requests: [{ resource: 'HF API model metadata + pinned config.json + model.safetensors.index.json (initial retrieval)', bytes: 140847, time: new Date().toISOString() }] };
+if (!await exists(ledgerPath) && await exists(resolve(data, 'manifest.json'))) throw new Error('Download ledger is missing from an existing bundle. Restore it before fetching additional data.');
+let ledger: Ledger = await exists(ledgerPath) ? JSON.parse(await readFile(ledgerPath, 'utf8')) : { revision: REVISION, limitBytes: DOWNLOAD_BUDGET, downloadedBytes: 0, requests: [] };
+if (!Number.isSafeInteger(ledger.downloadedBytes) || ledger.downloadedBytes < 0 || ledger.downloadedBytes > DOWNLOAD_BUDGET || !Array.isArray(ledger.requests) || ledger.requests.some(r => !Number.isSafeInteger(r.bytes) || r.bytes < 0) || ledger.requests.reduce((n, r) => n + r.bytes, 0) !== ledger.downloadedBytes) throw new Error('Download ledger is malformed or does not reconcile. Refusing further downloads.');
+if (ledger.importedBrowserBytes !== undefined && (!Number.isSafeInteger(ledger.importedBrowserBytes) || ledger.importedBrowserBytes < 0 || ledger.importedBrowserBytes > ledger.downloadedBytes)) throw new Error('Imported browser ledger is malformed.');
+const browserOption = process.argv.indexOf('--browser-bytes');
+if (browserOption !== -1) {
+  const reported = Number(process.argv[browserOption + 1]); if (!Number.isSafeInteger(reported) || reported < 0) throw new Error('--browser-bytes requires a nonnegative integer from the browser download counter.');
+  const additional = Math.max(0, reported - (ledger.importedBrowserBytes ?? 0));
+  if (ledger.downloadedBytes + additional > DOWNLOAD_BUDGET) throw new Error('Reported browser usage already exhausts the shared download budget.');
+  if (additional) ledger.requests.push({ resource: 'Browser response bytes imported from runtime ledger', bytes: additional, time: new Date().toISOString() });
+  ledger.downloadedBytes += additional; ledger.importedBrowserBytes = Math.max(reported, ledger.importedBrowserBytes ?? 0);
+}
 if (ledger.revision !== REVISION) throw new Error('Download ledger belongs to a different model revision.');
 await writeFile(ledgerPath, JSON.stringify(ledger, null, 2));
 async function fetchBounded(resource: string, start?: number, length?: number, maximum = 25_000_000): Promise<Uint8Array> {
-  const requested = length ?? maximum; if (ledger.downloadedBytes + requested > DOWNLOAD_BUDGET) throw new Error(`150 MB download budget exceeded before ${resource}; ask the user before continuing.`);
+  const requested = length ?? maximum;
+  if (!Number.isSafeInteger(requested) || requested < 1 || (start !== undefined && (!Number.isSafeInteger(start) || start < 0 || !Number.isSafeInteger(length) || length! < 1))) throw new Error('Invalid requested byte interval.'); if (ledger.downloadedBytes + requested > DOWNLOAD_BUDGET) throw new Error(`150 MB download budget exceeded before ${resource}; ask the user before continuing.`);
   const range = start !== undefined ? `bytes=${start}-${start + length! - 1}` : undefined;
   const url = `${base}${resource}${range ? `?range=${start}-${start! + length! - 1}` : ''}`;
   const response = await fetch(url, { headers: range ? { Range: range } : {}, signal: AbortSignal.timeout(90000) });
   if (range && response.status !== 206) { await response.body?.cancel(); throw new Error(`Range ignored (${response.status}) for ${resource}: cancelled without downloading shard.`); }
-  if (!response.ok || !response.body) throw new Error(`HTTP ${response.status} fetching ${resource}`);
-  if (range && response.headers.get('content-range') !== `bytes ${start}-${start! + length! - 1}/${response.headers.get('content-range')?.split('/')[1]}`) { await response.body.cancel(); throw new Error(`Wrong Content-Range for ${resource}`); }
-  const contentLength = Number(response.headers.get('content-length') || 0); if (contentLength > requested) { await response.body.cancel(); throw new Error('Response exceeds expected byte budget.'); }
+  if (!response.ok || !response.body) { await response.body?.cancel(); throw new Error(`HTTP ${response.status} fetching ${resource}`); }
+  if (range) { try { validateRangeHeaders(response.headers, start!, length!); } catch (error) { await response.body.cancel(); throw error; } }
+  const contentLength = Number(response.headers.get('content-length') || 0); if (!Number.isSafeInteger(contentLength) || contentLength < 0 || contentLength > requested) { await response.body.cancel(); throw new Error('Response exceeds expected byte budget.'); }
   const reader = response.body.getReader(), parts: Uint8Array[] = []; let got = 0;
   try { while (true) { const part = await reader.read(); if (part.done) break; got += part.value.length; ledger.downloadedBytes += part.value.length; if (got > requested || ledger.downloadedBytes > DOWNLOAD_BUDGET) { await reader.cancel(); throw new Error('Streaming byte budget exceeded; response cancelled.'); } parts.push(part.value); } }
   finally { ledger.requests.push({ resource, bytes: got, time: new Date().toISOString(), ...(range ? { range } : {}) }); await writeFile(ledgerPath, JSON.stringify(ledger, null, 2)); reader.releaseLock(); }
@@ -62,15 +87,16 @@ const totalParams = Object.values(tensors).reduce((s, t) => s + t.params, 0), to
 if (totalBytes !== index.metadata.total_size) throw new Error('Index total_size differs from sum of exact header byte counts.');
 const layers = config.text_config.layer_types.map((kind: string, layer: number) => { const values = Object.values(tensors).filter(t => t.layer === layer); return { index: layer, kind, names: values.map(t => t.name), params: values.reduce((s, t) => s + t.params, 0), bytes: values.reduce((s, t) => s + t.bytes, 0) }; });
 const tiles: TileFile[] = old?.revision === REVISION ? old.tiles : [];
-const manifest: ModelManifest = { repo: REPO, revision: REVISION, fetchedAt: old?.fetchedAt ?? new Date().toISOString(), config, index, tensors, layers, components, totalParams, totalBytes, shards, tiles, tensorStats: old?.tensorStats ?? {}, defaultTokenIds: old?.defaultTokenIds ?? [], budget: { limitBytes: DOWNLOAD_BUDGET, downloadedBytes: ledger.downloadedBytes, remainingBytes: DOWNLOAD_BUDGET - ledger.downloadedBytes, accounting: 'Actual response body bytes for metadata, tokenizer, shard headers, all requested row-band bytes including unused columns; browser on-demand bytes are added separately.' }, range: { node: true, browserCORS: 'Range headers expose Access-Control-Allow-Origin: *. Root task performs real browser verification.', checkedAt: new Date().toISOString() } };
+const manifest: ModelManifest = { repo: REPO, revision: REVISION, fetchedAt: old?.fetchedAt ?? new Date().toISOString(), config, index, tensors, layers, components, totalParams, totalBytes, shards, tiles, tensorStats: old?.tensorStats ?? {}, defaultTokenIds: old?.defaultTokenIds ?? [], budget: { limitBytes: DOWNLOAD_BUDGET, downloadedBytes: ledger.downloadedBytes, remainingBytes: DOWNLOAD_BUDGET - ledger.downloadedBytes, accounting: 'Actual response body bytes for metadata, tokenizer, shard headers, all requested row-band bytes including unused columns; browser on-demand bytes are added separately.' }, range: old?.range ?? { node: true, browserCORS: 'Range headers expose Access-Control-Allow-Origin: *. Browser verification pending.', checkedAt: new Date().toISOString() } };
 async function persist(): Promise<void> { manifest.budget.downloadedBytes = ledger.downloadedBytes; manifest.budget.remainingBytes = DOWNLOAD_BUDGET - ledger.downloadedBytes; await writeFile(manifestPath, JSON.stringify(manifest, null, 2)); }
 await persist();
 if (process.argv.includes('--metadata')) { process.stdout.write(`Metadata ready: ${totalParams} parameters, ${totalBytes} weight bytes.\n`); process.exit(0); }
 async function tile(name: string, row: number, col: number, rows: number, cols: number, purpose: string): Promise<void> {
   const t = tensors[name]; if (!t) throw new Error(`Unknown requested tensor ${name}`);
+  if (![row, col, rows, cols].every(Number.isSafeInteger) || rows < 1 || cols < 1) throw new Error('Tile coordinates and dimensions must be finite positive integers.');
   const [height, width] = matrixShape(t); if (row + rows > height || col + cols > width || row < 0 || col < 0) throw new Error(`Out-of-bounds tile ${name}`);
   const id = sha(`${REVISION}:${name}:${row}:${col}:${rows}:${cols}`).slice(0, 24), path = `weights/${id}.f32`, absolute = resolve(root, 'public', path);
-  const previous = tiles.find(x => x.id === id); if (previous && await exists(absolute)) { if ((await stat(absolute)).size !== previous.bytes) throw new Error(`Cached tile corrupted ${path}`); return; }
+  const previous = tiles.find(x => x.id === id); if (previous && await exists(absolute)) { const saved = await readFile(absolute); if (saved.length !== previous.bytes || sha(saved) !== previous.sha256) throw new Error(`Cached tile corrupted ${path}`); return; }
   const size = scalarBytes(t.dtype), start = t.absoluteOffsets[0] + (row * width + col) * size, sourceBytes = ((rows - 1) * width + cols) * size;
   const buffer = await fetchBounded(t.shard, start, sourceBytes); const values = new Float32Array(rows * cols);
   for (let r = 0; r < rows; r++) values.set(decodeValues(buffer.subarray(r * width * size, r * width * size + cols * size), t.dtype), r * cols);
