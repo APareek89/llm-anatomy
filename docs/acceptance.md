@@ -39,3 +39,17 @@ Playback advances through recorded operations with numerical matrices and a sche
 Adjacent real 256-grid regions load at individual-cell zoom through the same guarded loader. One previous tile is retained dimmed for continuity. Sparse embedding rows and Micro-Qwen tensors use explicit coordinate controls. The renderer uses WebGL2; deterministic reference math runs in a CPU worker, with WebGPU available for the optional projection comparison.
 
 Source files, benchmark settings, data accounting, architecture references and all tests are included in the project. The README provides run instructions and the same scope distinctions.
+
+## Four-family expansion — 11 September 2026
+
+- All 28 automated tests pass. The original Qwen numerical and data checks remain unchanged; nine additional tests validate family-specific operations, complete tiny-model gradients, deterministic training and learned continuations.
+- All three added families load their own genuinely trained 300-step checkpoints. Browser inference reproduced GPT `the` at 98.5%, Llama `the` at 94.4% and `rug` at 84.8%, and Gemma `the` at 98.5%.
+- The gpt-oss calculation lens shows the actual top-k router matrix, zero contribution from unselected experts, and selected normalized weights. Scene highlights agree with the final token’s routing row. All candidate experts are evaluated in the teaching implementation before masking; this is mathematically sparse routing, not an optimized sparse execution kernel.
+- Every nine-stop family tour completed, including actual training/backward operations. The Llama/Gemma next-word tour correctly selects their tied embedding language-head logits.
+- Gemma was reset to seed 42 and trained for 300 browser-worker steps in 2.96 seconds. Learned test continuations: the 98.5%, mat 99.1%, rug 96.3%.
+- Session isolation was verified: Llama and Gemma were each at step 301 after their tours. Resetting Llama returned only Llama to step 0; Gemma remained at 301, and switching back preserved Llama’s reset state.
+- Source dialogs distinguish official GPT config from reference-derived gated Meta/Google config. No new vendor weights/tokenizers are claimed. Shared embeddings explain both gradient paths, including updates to words absent from the input.
+- Matrix previews preserve aspect ratio with a three-world-unit cap. The additional tab strip and distinct family scenes were visually inspected at 1280 × 720; inspected browser logs contained no errors or warnings.
+
+- Llama’s reset-to-300 browser rerun took 1.91 seconds and reproduced the/mat/rug at 94.4%/93.4%/84.8%. Returning to Qwen still loaded the authenticated real query-weight tile and its expected statistics.
+- Vercel deployment is pending a credential with deployment permission. The supplied token authenticated successfully, but both intended-team and default-scope static file uploads were rejected with HTTP 403 (`fileUpload` create permission). No deployment URL was produced and no secret was included in `dist/`.

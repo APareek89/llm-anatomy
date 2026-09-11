@@ -8,7 +8,7 @@ export interface ModelConfig {
   text_config: { hidden_size: number; num_hidden_layers: number; intermediate_size: number; vocab_size: number; num_attention_heads: number; num_key_value_heads: number; head_dim: number; layer_types: string[]; linear_num_key_heads: number; linear_num_value_heads: number; linear_key_head_dim: number; linear_value_head_dim: number; partial_rotary_factor: number; max_position_embeddings: number; [key: string]: unknown };
   vision_config: { depth: number; [key: string]: unknown }; [key: string]: unknown;
 }
-export interface TensorMeta { name: string; shape: number[]; dtype: string; shard: string; dataOffsets: [number, number]; absoluteOffsets: [number, number]; params: number; bytes: number; component: string; layer?: number }
+export interface TensorMeta { name: string; shape: number[]; dtype: string; shard: string; dataOffsets: [number, number]; absoluteOffsets: [number, number]; params: number; bytes: number; component: string; layer?: number; tiedEmbedding?: boolean; embeddingScale?: number }
 export interface ComponentMeta { params: number; bytes: number; count: number }
 export interface LayerMeta { index: number; kind: string; names: string[]; params: number; bytes: number }
 export interface Stats { count: number; mean: number; std: number; min: number; max: number; nearZeroFraction: number; p01: number; p99: number; scope: 'loaded values only' }

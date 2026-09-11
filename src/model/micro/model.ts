@@ -1,15 +1,24 @@
-import {Tensor,Tape,matmul,add,mul,activation,rmsnorm,slice,splitInterleaved,embedding,crossEntropy,softmaxValues,fmt,view,type RecordedStep} from './tensor';
+import {Tensor,Tape,matmul,add,mul,activation,rmsnorm,slice,splitInterleaved,embedding,crossEntropy,softmaxValues,fmt,view,scale,bias,gelu,clippedSwiGLU,topKRouter,expertMixture,type RecordedStep} from './tensor';
 import {causalConv,l2norm,rope,attention,deltaRule} from './mixers';
 import {CORPUS,WordTokenizer,Random} from './corpus';
-export interface MicroConfig { hidden:number;layers:number;intermediate:number;queryHeads:number;kvHeads:number;headDim:number;deltaKeyHeads:number;deltaValueHeads:number;deltaKeyDim:number;deltaValueDim:number;convKernel:number;ropeFraction:number;ropeTheta:number;seed:number; }
-export const DEFAULT_CONFIG:MicroConfig={hidden:64,layers:8,intermediate:128,queryHeads:6,kvHeads:1,headDim:16,deltaKeyHeads:1,deltaValueHeads:3,deltaKeyDim:8,deltaValueDim:8,convKernel:4,ropeFraction:0.25,ropeTheta:10000000,seed:42};
+export type MicroFamily='qwen'|'gpt-oss'|'llama'|'gemma';
+export interface MicroConfig { family:MicroFamily;localWindow:number;experts:number;expertsPerToken:number;localRopeTheta:number;normEpsilon:number;hidden:number;layers:number;intermediate:number;queryHeads:number;kvHeads:number;headDim:number;deltaKeyHeads:number;deltaValueHeads:number;deltaKeyDim:number;deltaValueDim:number;convKernel:number;ropeFraction:number;ropeTheta:number;seed:number; }
+export const DEFAULT_CONFIG:MicroConfig={family:'qwen',localWindow:4,experts:4,expertsPerToken:2,localRopeTheta:10000,normEpsilon:1e-6,hidden:64,layers:8,intermediate:128,queryHeads:6,kvHeads:1,headDim:16,deltaKeyHeads:1,deltaValueHeads:3,deltaKeyDim:8,deltaValueDim:8,convKernel:4,ropeFraction:0.25,ropeTheta:10000000,seed:42};
+export const FAMILY_DEFAULTS:Record<MicroFamily,Partial<MicroConfig>>={
+ qwen:{},
+ 'gpt-oss':{hidden:32,layers:4,intermediate:48,queryHeads:8,kvHeads:1,headDim:8,ropeFraction:1,ropeTheta:150000,normEpsilon:1e-5},
+ llama:{hidden:32,layers:4,intermediate:64,queryHeads:4,kvHeads:1,headDim:8,ropeFraction:1,ropeTheta:500000,normEpsilon:1e-5},
+ gemma:{hidden:32,layers:6,intermediate:64,queryHeads:4,kvHeads:1,headDim:8,ropeFraction:1,ropeTheta:1000000,normEpsilon:1e-6},
+};
 export interface Prediction {token:string;id:number;probability:number;}
 export interface InferenceResult {prompt:string;ids:number[];tokens:string[];prediction:string;tokenId:number;top:Prediction[];probabilities:number[];logits:number[];steps:RecordedStep[];parameterCount:number;}
 export interface TrainResult {step:number;loss:number;accuracy:number;learningRate:number;batchSize:number;gradientNorm:number;clipScale:number;steps:RecordedStep[];movers:{name:string;changeNorm:number;gradientNorm:number}[];batch:{text:string;inputIds:number[];targetIds:number[];loss:number;targetProbabilities:number[];tokenLosses:number[]}[];predictions:Record<string,Prediction[]>;}
 export class MicroModel {
   config:MicroConfig;tokenizer=new WordTokenizer();parameters:Tensor[]=[];paramMap=new Map<string,Tensor>();rng:Random;iteration=0;
-  constructor(config:Partial<MicroConfig>={}){this.config={...DEFAULT_CONFIG,...config};this.rng=new Random(this.config.seed);const c=this.config;
+  constructor(config:Partial<MicroConfig>={}){this.config={...DEFAULT_CONFIG,...FAMILY_DEFAULTS[config.family??'qwen'],...config};this.rng=new Random(this.config.seed);const c=this.config;
     if(c.queryHeads%c.kvHeads||c.deltaValueHeads%c.deltaKeyHeads)throw new Error('Head counts must have integer grouping ratios');
+    if(c.expertsPerToken<1||c.expertsPerToken>c.experts)throw new Error('Invalid top-k expert count');
+    if(c.family!=='qwen'){this.initializeFamily();return;}
     this.parameter('embed_tokens.weight',[this.tokenizer.vocab.length,c.hidden],0.25);
     for(let l=0;l<c.layers;l++){
       const p=`layers.${l}`;this.parameter(`${p}.input_layernorm.weight`,[c.hidden],0);
@@ -19,6 +28,41 @@ export class MicroModel {
     }
     this.parameter('norm.weight',[c.hidden],0);this.parameter('lm_head.weight',[this.tokenizer.vocab.length,c.hidden],0.5/Math.sqrt(c.hidden));
   }
+  private initializeFamily(){
+    const c=this.config,gpt=c.family==='gpt-oss',gemma=c.family==='gemma',offset=gemma?0:1;
+    this.parameter('embed_tokens.weight',[this.tokenizer.vocab.length,c.hidden],.25);
+    const norm=(name:string,size=c.hidden)=>this.parameter(name,[size],0,offset);
+    const projection=(name:string,outputs:number,inputs:number,std=.5)=>{this.parameter(`${name}.weight`,[outputs,inputs],std/Math.sqrt(inputs));if(gpt)this.parameter(`${name}.bias`,[outputs],0);};
+    for(let l=0;l<c.layers;l++){
+      const p=`layers.${l}`,a=`${p}.self_attn`;norm(`${p}.input_layernorm.weight`);
+      projection(`${a}.q_proj`,c.queryHeads*c.headDim,c.hidden,.45);projection(`${a}.k_proj`,c.kvHeads*c.headDim,c.hidden,.45);projection(`${a}.v_proj`,c.kvHeads*c.headDim,c.hidden,.45);projection(`${a}.o_proj`,c.hidden,c.queryHeads*c.headDim,.3);
+      if(gpt)this.parameter(`${a}.sinks`,[c.queryHeads],0);
+      if(gemma){norm(`${a}.q_norm.weight`,c.headDim);norm(`${a}.k_norm.weight`,c.headDim);norm(`${p}.post_attention_layernorm.weight`);norm(`${p}.pre_feedforward_layernorm.weight`);norm(`${p}.post_feedforward_layernorm.weight`);}else norm(`${p}.post_attention_layernorm.weight`);
+      if(gpt){projection(`${p}.mlp.router`,c.experts,c.hidden,.2);for(let e=0;e<c.experts;e++){const expert=`${p}.mlp.experts.${e}`;projection(`${expert}.gate_proj`,c.intermediate,c.hidden);projection(`${expert}.up_proj`,c.intermediate,c.hidden);projection(`${expert}.down_proj`,c.hidden,c.intermediate,.3);}}
+      else{projection(`${p}.mlp.gate_proj`,c.intermediate,c.hidden);projection(`${p}.mlp.up_proj`,c.intermediate,c.hidden);projection(`${p}.mlp.down_proj`,c.hidden,c.intermediate,.3);}
+    }
+    norm('norm.weight');if(gpt)this.parameter('lm_head.weight',[this.tokenizer.vocab.length,c.hidden],.5/Math.sqrt(c.hidden));
+  }
+  private familyForward(ids:number[],record:boolean){
+    const c=this.config,t=new Tape(record),gpt=c.family==='gpt-oss',gemma=c.family==='gemma';
+    const norm=(x:Tensor,name:string,label:string,dim=c.hidden)=>rmsnorm(t,x,this.w(name),dim,label,gemma,c.normEpsilon);
+    const project=(x:Tensor,name:string,label:string)=>{const out=matmul(t,x,this.w(`${name}.weight`),label);return gpt?bias(t,out,this.w(`${name}.bias`),`${label} bias`):out;};
+    if(record)t.steps.push({id:0,name:'Word tokenization [micro]',layer:-1,phase:'forward',inputs:[],outputs:[{name:'Token IDs',shape:[ids.length],values:ids}],formula:'text → word vocabulary IDs',explanation:`The ${c.family} micro model uses the shared teaching corpus word tokenizer, independently of its official tokenizer.`,arithmetic:ids.map(id=>`${this.tokenizer.vocab[id]} → ${id}`).join(' · ')});
+    let x=embedding(t,ids,this.w('embed_tokens.weight'));if(gemma)x=scale(t,x,Math.sqrt(c.hidden),'Gemma embedding scale');
+    for(let l=0;l<c.layers;l++){
+      t.layer=l;const p=`layers.${l}`,a=`${p}.self_attn`,local=gpt?l%2===0:gemma?l%6!==5:false,n=norm(x,`${p}.input_layernorm.weight`,'Input RMSNorm');
+      let q=project(n,`${a}.q_proj`,'Query projection'),k=project(n,`${a}.k_proj`,'Key projection');const v=project(n,`${a}.v_proj`,'Value projection');
+      if(gemma){q=norm(q,`${a}.q_norm.weight`,'Query head RMSNorm',c.headDim);k=norm(k,`${a}.k_norm.weight`,'Key head RMSNorm',c.headDim);}
+      const theta=gemma&&local?c.localRopeTheta:c.ropeTheta;q=rope(t,q,c.queryHeads,c.headDim,1,theta);k=rope(t,k,c.kvHeads,c.headDim,1,theta);
+      let mixed=project(attention(t,q,k,v,c.queryHeads,c.kvHeads,c.headDim,{window:local?c.localWindow:undefined,sinks:gpt?this.w(`${a}.sinks`):undefined}),`${a}.o_proj`,local?'Sliding attention output projection':'Full attention output projection');
+      if(gemma)mixed=norm(mixed,`${p}.post_attention_layernorm.weight`,'Post-attention RMSNorm');x=add(t,x,mixed,'Attention residual add');
+      const fn=norm(x,`${p}.${gemma?'pre_feedforward':'post_attention'}_layernorm.weight`,'Feed-forward RMSNorm');let down:Tensor;
+      if(gpt){const routing=topKRouter(t,project(fn,`${p}.mlp.router`,'Expert router logits'),c.expertsPerToken),experts:Tensor[]=[];for(let e=0;e<c.experts;e++){const name=`${p}.mlp.experts.${e}`,gate=project(fn,`${name}.gate_proj`,`Expert ${e} gate projection`),up=project(fn,`${name}.up_proj`,`Expert ${e} up projection`);experts.push(project(clippedSwiGLU(t,gate,up),`${name}.down_proj`,`Expert ${e} down projection`));}down=expertMixture(t,routing,experts);}
+      else{const raw=project(fn,`${p}.mlp.gate_proj`,'FFN gate projection'),gate=gemma?gelu(t,raw):activation(t,raw,'silu'),up=project(fn,`${p}.mlp.up_proj`,'FFN up projection');down=project(mul(t,gate,up,gemma?'GELU-gated product':'SwiGLU product'),`${p}.mlp.down_proj`,'FFN down projection');}
+      if(gemma)down=norm(down,`${p}.post_feedforward_layernorm.weight`,'Post-feed-forward RMSNorm');x=add(t,x,down,'FFN residual add');
+    }
+    t.layer=c.layers;const final=norm(x,'norm.weight','Final RMSNorm'),logits=matmul(t,final,this.w(gpt?'lm_head.weight':'embed_tokens.weight'),gpt?'LM head logits':'Tied embedding LM head logits');return {logits,tape:t};
+  }
   parameter(name:string,shape:number[],std:number,offset=0){const w=new Tensor(shape,undefined,name);for(let i=0;i<w.length;i++)w.data[i]=std?this.rng.normal()*std+offset:offset;this.parameters.push(w);this.paramMap.set(name,w);return w;}
   w(name:string){const w=this.paramMap.get(name);if(!w)throw new Error(`Unknown parameter ${name}`);return w;}
   get parameterCount(){return this.parameters.reduce((n,p)=>n+p.length,0);}
@@ -26,6 +70,7 @@ export class MicroModel {
   zeroGrad(){for(const p of this.parameters)p.grad.fill(0);}
   reset(seed=this.config.seed){const fresh=new MicroModel({...this.config,seed});this.config=fresh.config;this.parameters=fresh.parameters;this.paramMap=fresh.paramMap;this.rng=fresh.rng;this.iteration=0;}
   forward(ids:number[],record=false){if(!ids.length)ids=[2];if(ids.length>64)throw new Error('Micro context limit is 64 tokens; shorten the learning example.');const t=new Tape(record),c=this.config;
+    if(c.family!=='qwen')return this.familyForward(ids,record);
     if(record)t.steps.push({id:0,name:'Word tokenization [micro]',layer:-1,phase:'forward',inputs:[],outputs:[{name:'Token IDs',shape:[ids.length],values:ids}],formula:'text → word vocabulary IDs',explanation:'This small word tokenizer is separate from the real Qwen tokenizer.',arithmetic:ids.map(id=>`${this.tokenizer.vocab[id]} → ${id}`).join(' · ')});
     let x=embedding(t,ids,this.w('embed_tokens.weight'));
     for(let l=0;l<c.layers;l++){t.layer=l;const p=`layers.${l}`,n=rmsnorm(t,x,this.w(`${p}.input_layernorm.weight`),c.hidden);let mixed:Tensor;
@@ -40,7 +85,7 @@ export class MicroModel {
   }
   loss(ids:number[],targets:number[],record=false){const {logits,tape}=this.forward(ids,record);const loss=crossEntropy(tape,logits,targets);return {loss,logits,tape};}
   infer(prompt:string,options:{temperature?:number;seed?:number;record?:boolean}={}):InferenceResult {
-    const ids=this.tokenizer.encode(prompt);if(!ids.length)ids.push(2);const {logits,tape}=this.forward(ids,options.record??true),V=this.tokenizer.vocab.length,row=Array.from(logits.data.slice((ids.length-1)*V)),temperature=options.temperature??0,probs=softmaxValues(row,temperature>0?temperature:1),top=probs.map((probability,id)=>({token:this.tokenizer.vocab[id],id,probability})).sort((a,b)=>b.probability-a.probability);let tokenId=top[0].id;
+    const ids=this.tokenizer.encode(prompt);if(this.config.family!=='qwen'||!ids.length)ids.unshift(2);const {logits,tape}=this.forward(ids,options.record??true),V=this.tokenizer.vocab.length,row=Array.from(logits.data.slice((ids.length-1)*V)),temperature=options.temperature??0,probs=softmaxValues(row,temperature>0?temperature:1),top=probs.map((probability,id)=>({token:this.tokenizer.vocab[id],id,probability})).sort((a,b)=>b.probability-a.probability);let tokenId=top[0].id;
     if(temperature>0){const rng=new Random(options.seed??this.config.seed+this.iteration),sample=rng.next();let cumulative=0;for(let i=0;i<probs.length;i++){cumulative+=probs[i];if(cumulative>=sample){tokenId=i;break;}}}
     if(options.record??true){tape.steps.push({id:tape.steps.length,name:'Next-token softmax',layer:this.config.layers,phase:'forward',inputs:[{name:'Last-position logits',shape:[V],values:row}],outputs:[{name:'Next-token probabilities',shape:[V],values:probs}],formula:temperature>0?'pᵢ = exp(logitᵢ / T) / Σ exp(logitⱼ / T)':'pᵢ = exp(logitᵢ) / Σ exp(logitⱼ)',explanation:'Convert the last position scores into a probability distribution over the micro vocabulary.',arithmetic:`p(${top[0].token}) = ${fmt(top[0].probability)}; Σp = ${fmt(probs.reduce((a,b)=>a+b,0))}`});tape.steps.push({id:tape.steps.length,name:temperature>0?'Seeded token sampling':'Greedy token selection',layer:this.config.layers,phase:'forward',inputs:[{name:'Probabilities',shape:[V],values:probs}],outputs:[{name:'Chosen token ID',shape:[1],values:[tokenId]}],formula:temperature>0?'token ~ Categorical(p), seeded RNG':'token = argmax(p)',explanation:temperature>0?'Use a reproducible random draw from the temperature-adjusted probabilities.':'Choose the most probable word. Temperature zero is deterministic greedy decoding.',arithmetic:`token = ${this.tokenizer.vocab[tokenId]} (ID ${tokenId}), p = ${fmt(probs[tokenId])}`});}
     return {prompt,ids,tokens:ids.map(i=>this.tokenizer.vocab[i]),prediction:this.tokenizer.vocab[tokenId],tokenId,top:top.slice(0,10),probabilities:probs,logits:row,steps:tape.steps,parameterCount:this.parameterCount};
@@ -50,13 +95,14 @@ export class MicroModel {
     for(let b=0;b<batchSize;b++){const text=CORPUS[Math.floor(this.rng.next()*CORPUS.length)],words=this.tokenizer.encode(text),inputIds=[2,...words],targetIds=[...words,3];const {loss,logits,tape}=this.loss(inputIds,targetIds,record&&b===0);lossSum+=loss.data[0];const V=this.tokenizer.vocab.length;for(let r=0;r<targetIds.length;r++){let best=0;for(let v=1;v<V;v++)if(logits.data[r*V+v]>logits.data[r*V+best])best=v;if(best===targetIds[r])correct++;total++;}const targetProbabilities=targetIds.map((id,r)=>softmaxValues(logits.data.subarray(r*V,(r+1)*V))[id]);batch.push({text,inputIds,targetIds,loss:loss.data[0],targetProbabilities,tokenLosses:targetProbabilities.map(p=>-Math.log(Math.max(1e-300,p)))});tape.backward(loss,1/batchSize);if(record&&b===0)steps.push(...tape.steps);}
     let norm2=0;for(const p of this.parameters)for(const g of p.grad)norm2+=g*g;const gradientNorm=Math.sqrt(norm2),clipScale=Math.min(1,1/Math.max(1e-12,gradientNorm));const movers:TrainResult['movers']=[];
     if(record){steps.unshift({id:0,name:'Training batch',layer:-1,phase:'forward',inputs:[],outputs:batch.flatMap((b,i)=>[{name:`Example ${i+1}: input and target IDs · ${b.text}`,shape:[b.inputIds.length,2],values:b.inputIds.flatMap((id,j)=>[id,b.targetIds[j]])},{name:`Example ${i+1}: probability of each correct next word`,shape:[b.targetProbabilities.length],values:b.targetProbabilities,gradient:b.targetProbabilities.map(probability=>-1/(batchSize*b.targetProbabilities.length*probability))},{name:`Example ${i+1}: −log p(correct next word)`,shape:[b.tokenLosses.length],values:b.tokenLosses,gradient:b.tokenLosses.map(()=>1/(batchSize*b.tokenLosses.length))},{name:`Example ${i+1}: sentence mean loss`,shape:[1],values:[b.loss],gradient:[1/batchSize]}]),formula:'Each input position predicts the next word',explanation:`${batchSize} corpus sentences; loss and gradients are averaged over the batch. Detailed operation playback follows the first example.`,arithmetic:`(${batch.map(b=>fmt(b.loss)).join(' + ')}) / ${batchSize} = ${fmt(lossSum/batchSize)}`});
-      for(const p of [...this.parameters].reverse()){const l=/layers\.(\d+)/.exec(p.name);steps.push({id:steps.length,name:`Gradient · ${p.name}`,layer:l?Number(l[1]):p.name.startsWith('embed')?-1:this.config.layers,phase:'backward',parameter:p.name,inputs:[view(p)],outputs:[{name:`dL/d ${p.name}`,shape:[...p.shape],values:Array.from(p.grad)}],formula:'∂L/∂W = Σ paths (upstream gradient × local derivative)',explanation:p.name.startsWith('embed')?'Only embedding rows read by the batch accumulate gradients. Other rows are exactly zero.':'The chain rule carries prediction error from the output back to each earlier learned weight.',arithmetic:`∂L/∂W[0] = ${fmt(p.grad[0])}; global gradient norm = ${fmt(gradientNorm)}`});}}
+      for(const p of [...this.parameters].reverse()){const l=/layers\.(\d+)/.exec(p.name);steps.push({id:steps.length,name:`Gradient · ${p.name}`,layer:l?Number(l[1]):p.name.startsWith('embed')?-1:this.config.layers,phase:'backward',parameter:p.name,inputs:[view(p)],outputs:[{name:`dL/d ${p.name}`,shape:[...p.shape],values:Array.from(p.grad)}],formula:'∂L/∂W = Σ paths (upstream gradient × local derivative)',explanation:p.name.startsWith('embed')?(this.config.family==='llama'||this.config.family==='gemma'?'This tied matrix receives lookup gradients on used rows and output-head gradients across the vocabulary.':'Only embedding rows read by the batch accumulate gradients. Other rows are exactly zero.'):'The chain rule carries prediction error from the output back to each earlier learned weight.',arithmetic:`∂L/∂W[0] = ${fmt(p.grad[0])}; global gradient norm = ${fmt(gradientNorm)}`});}}
     for(const p of this.parameters){let g2=0;for(const g of p.grad)g2+=g*g;const gn=Math.sqrt(g2);movers.push({name:p.name,gradientNorm:gn,changeNorm:gn*learningRate*clipScale});let before:number[]|undefined;if(record)before=Array.from(p.data);for(let i=0;i<p.length;i++)p.data[i]-=learningRate*clipScale*p.grad[i];if(record){const l=/layers\.(\d+)/.exec(p.name);steps.push({id:steps.length,name:`SGD update · ${p.name}`,layer:l?Number(l[1]):p.name.startsWith('embed')?-1:this.config.layers,phase:'update',parameter:p.name,inputs:[{name:'Weight before update',shape:[...p.shape],values:before!},{name:'Raw batch gradient',shape:[...p.shape],values:Array.from(p.grad)}],outputs:[view(p)],formula:'W ← W − learning_rate × clip_scale × ∂L/∂W',explanation:'Move each parameter a small distance downhill on the loss. Global norm clipping keeps very large gradients bounded.',arithmetic:`${fmt(before![0])} − ${fmt(learningRate)} × ${fmt(clipScale)} × ${fmt(p.grad[0])} = ${fmt(p.data[0])}`});}}
     steps.forEach((s,i)=>s.id=i);this.iteration++;const predictions:TrainResult['predictions']={};if(options.predictions??true)for(const prompt of ['the cat sat on','the cat sat on the','the dog sat on the'])predictions[prompt]=this.infer(prompt,{record:false}).top;
     return {step:this.iteration,loss:lossSum/batchSize,accuracy:correct/total,learningRate,batchSize,gradientNorm,clipScale,steps,movers:movers.sort((a,b)=>b.changeNorm-a.changeNorm).slice(0,5),batch,predictions};
   }
   exportState(){return {config:{...this.config},iteration:this.iteration,rngState:this.rng.state,parameters:this.parameters.map(p=>({name:p.name,shape:[...p.shape],values:Array.from(p.data)}))};}
   importState(state:ReturnType<MicroModel['exportState']>){
+    if((state.config.family??'qwen')!==this.config.family)throw new Error('Checkpoint model family does not match this model');
     for(const incoming of state.parameters){const p=this.w(incoming.name);if(p.shape.join(',')!==incoming.shape.join(',')||p.length!==incoming.values.length)throw new Error(`Checkpoint shape mismatch: ${p.name}`);if(incoming.values.some(v=>!Number.isFinite(v)))throw new Error(`Nonfinite checkpoint: ${p.name}`);}
     if(state.parameters.length!==this.parameters.length)throw new Error('Checkpoint parameter count mismatch');for(const incoming of state.parameters)this.w(incoming.name).data.set(incoming.values);this.iteration=state.iteration;this.rng.state=state.rngState;this.zeroGrad();
   }

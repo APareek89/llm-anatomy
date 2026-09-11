@@ -1,6 +1,20 @@
-# Qwen anatomy
+# LLM anatomy
 
-A browser-based 3D learning lab: open the real Qwen3.8–27B architecture, inspect authentic weight samples, then follow actual inference and training calculations in a small, explicitly labelled Micro-Qwen model.
+Four architecture tabs with real miniature-model inference and training: **Qwen3.8**, **OpenAI gpt-oss**, **Meta Llama 3.2**, and **Google Gemma 3**. This is an interactive 3D learning lab. The predictions, activations, expert routes, gradients and updates are computed from each model’s own weights; they are not scripted.
+
+**These are teaching models, not official pretrained checkpoints.** Each miniature ships with weights genuinely trained for 300 steps on the same 30-sentence, 24-word corpus. They demonstrate architecture and learning, not the language quality of the released models. Qwen’s Explore tab additionally provides the original checkpoint’s full metadata and authentic sampled vendor weights. The real Qwen tokenizer remains available as a clearly labelled comparison across tabs.
+
+The added models are materially different:
+
+- **Micro-gpt-oss:** 97,040 parameters, four layers, eight query heads sharing one KV head, alternating local/full attention, learned sinks, and two selected experts out of four. Its router probabilities drive the 3D expert highlights.
+- **Micro-Llama:** 35,872 parameters, four dense GQA layers, direct RMSNorm scales, full rotary positions, SwiGLU, and shared embedding/output weights.
+- **Micro-Gemma:** 53,888 parameters, five local layers followed by one global layer, Q/K normalization, pre/post branch norms, GELU gates and scaled, shared embeddings.
+
+The three new families each have their own nine-stop tour. Qwen retains its twelve-stop tour. Tabs preserve independent weights and training history for the browser session; a reload restores the shipped starters. Use `?model=gpt-oss`, `?model=llama` or `?model=gemma` to link directly to a family. The persistent **Real computation · teaching weights** button explains the distinction at any time.
+
+Source configurations and exact implementation boundaries are in [family references](docs/families.md) and [micro-family mathematics and benchmarks](docs/micro-families.md). Meta and Google checkpoint configuration downloads were gated; their reference geometry is explicitly derived from pinned official source code/model cards. No Meta, Google or OpenAI vendor weight/tokenizer downloads are represented as present.
+
+**Verified:** 28 automated tests pass, including finite-difference checks for all three new families, deterministic training, learned continuations, and all existing Qwen checks. All new tours completed in the browser. Gemma’s 300-step browser rerun took 2.96 seconds and learned `the` / `mat` / `rug` at 98.5% / 99.1% / 96.3%. These timings are observations on the development Apple M4, not device-independent guarantees.
 
 ## Run
 
@@ -22,7 +36,7 @@ npm run preview         # Serve the production build
 npm run prefetch        # Verify/reuse the real default samples; fetch only missing files
 ```
 
-Serve `dist/` with an HTTP static server, rather than opening its HTML as a local file. Recreate the trained micro starter with `npx tsx scripts/train-starter.ts`.
+Serve `dist/` with an HTTP static server, rather than opening its HTML as a local file. Recreate the Qwen starter with `npx tsx scripts/train-starter.ts`, or all three new-family starters with `npx tsx scripts/train-families.ts`.
 
 ## Start exploring
 
@@ -31,7 +45,7 @@ Serve `dist/` with an HTTP static server, rather than opening its HTML as a loca
 - **Training:** animate one step for the batch, forward operations, loss, backward gradients and actual before/after updates. Reset weights to seed 42, then run **Train 300 fast** to reproduce learning. Batch size, learning rate, loss history and the largest measured updates remain inspectable.
 - **Take the tour:** twelve stops connect a single parameter to embeddings, both attention families, feed-forward layers, sampling, gradients and fine-tuning. The glossary explains the vocabulary.
 
-## What each label means
+## Qwen reference data and labels
 
 **`[real]`** means downloaded Qwen weight values or token IDs produced by its actual tokenizer. **`[config]`** means dimensions, geometry, parameter counts and storage totals computed from the pinned config, index and all safetensors headers. **`[micro]`** means the separately initialized teaching model's real activations, predictions, gradients and weight updates. Micro-Qwen never substitutes its values for missing Qwen samples.
 
@@ -90,3 +104,7 @@ Development follows eight phase commits: **1** real data and shapes; **2** Micro
 The real snapshot is pinned to [`1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0`](https://huggingface.co/Qwen/Qwen3.8-27B/tree/1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0): [configuration](https://huggingface.co/Qwen/Qwen3.8-27B/raw/1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0/config.json), [weight index](https://huggingface.co/Qwen/Qwen3.8-27B/raw/1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0/model.safetensors.index.json), and the shard headers supplied with this project.
 
 Architecture and recurrent equations follow the [pinned Transformers implementation](https://github.com/huggingface/transformers/blob/bd15bc95a89e728bbc1224084eb3b5829428c353/src/transformers/models/qwen3_5/modeling_qwen3_5.py), the [Gated Delta Networks paper](https://arxiv.org/abs/2412.06464), and the [authors' implementation](https://github.com/NVlabs/GatedDeltaNet). [Architecture reference](docs/architecture-reference.md) names the exact functions and explains head packing, normalization and the different DeltaNet/attention gates.
+
+## Static deployment
+
+Build with `npm run build`. The site needs only static hosting; all miniature model computations run in browser workers. `scripts/deploy-vercel.py` uploads only `dist/`, reads the Vercel token from a local secrets file and never writes it into the site. Its private deployment receipt is excluded from Git. No API key is required by visitors.

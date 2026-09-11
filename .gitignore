@@ -3,3 +3,6 @@ dist/
 .DS_Store
 *.log
 test-results/
+.vercel/
+.env*
+mysecrets*

@@ -1,0 +1,1926 @@
+{
+  "source": "Actual separately trained gpt-oss micro model; zero official model weights",
+  "createdAt": "2026-09-11T12:33:14.058Z",
+  "settings": {
+    "family": "gpt-oss",
+    "seed": 42,
+    "steps": 300,
+    "batchSize": 4,
+    "learningRate": 0.05
+  },
+  "config": {
+    "family": "gpt-oss",
+    "localWindow": 4,
+    "experts": 4,
+    "expertsPerToken": 2,
+    "localRopeTheta": 10000,
+    "normEpsilon": 0.00001,
+    "hidden": 32,
+    "layers": 4,
+    "intermediate": 48,
+    "queryHeads": 8,
+    "kvHeads": 1,
+    "headDim": 8,
+    "deltaKeyHeads": 1,
+    "deltaValueHeads": 3,
+    "deltaKeyDim": 8,
+    "deltaValueDim": 8,
+    "convKernel": 4,
+    "ropeFraction": 1,
+    "ropeTheta": 150000,
+    "seed": 42
+  },
+  "parameterCount": 97040,
+  "vocabulary": [
+    "<pad>",
+    "<unk>",
+    "<bos>",
+    "<eos>",
+    "a",
+    "bird",
+    "cat",
+    "dog",
+    "happy",
+    "in",
+    "is",
+    "likes",
+    "mat",
+    "on",
+    "rests",
+    "rug",
+    "sat",
+    "sleeps",
+    "small",
+    "soft",
+    "tall",
+    "the",
+    "today",
+    "tree"
+  ],
+  "environment": {
+    "runtime": "v24.8.0",
+    "platform": "darwin",
+    "osRelease": "25.6.0",
+    "architecture": "arm64",
+    "cpuModel": "Apple M4",
+    "logicalCPUs": 10
+  },
+  "trainingMilliseconds": 2566.0695,
+  "initial": {
+    "loss": 3.3166483893254335,
+    "accuracy": 0.03153153153153153,
+    "examples": 30,
+    "step": 0,
+    "probes": {
+      "the cat sat on": {
+        "prediction": "<pad>",
+        "top": [
+          {
+            "token": "<pad>",
+            "id": 0,
+            "probability": 0.08242047349112111
+          },
+          {
+            "token": "likes",
+            "id": 11,
+            "probability": 0.060015223875123744
+          },
+          {
+            "token": "tree",
+            "id": 23,
+            "probability": 0.056857451813681924
+          },
+          {
+            "token": "mat",
+            "id": 12,
+            "probability": 0.05325881019101372
+          },
+          {
+            "token": "<eos>",
+            "id": 3,
+            "probability": 0.05196124344794274
+          },
+          {
+            "token": "tall",
+            "id": 20,
+            "probability": 0.051488870788905884
+          },
+          {
+            "token": "soft",
+            "id": 19,
+            "probability": 0.0490668942407963
+          },
+          {
+            "token": "<bos>",
+            "id": 2,
+            "probability": 0.047504947849602075
+          },
+          {
+            "token": "in",
+            "id": 9,
+            "probability": 0.046469487639268454
+          },
+          {
+            "token": "on",
+            "id": 13,
+            "probability": 0.046311447019389176
+          }
+        ]
+      },
+      "the cat sat on the": {
+        "prediction": "<pad>",
+        "top": [
+          {
+            "token": "<pad>",
+            "id": 0,
+            "probability": 0.09087559764032288
+          },
+          {
+            "token": "happy",
+            "id": 8,
+            "probability": 0.06667760496446216
+          },
+          {
+            "token": "soft",
+            "id": 19,
+            "probability": 0.0625356584435976
+          },
+          {
+            "token": "<unk>",
+            "id": 1,
+            "probability": 0.06156432714006437
+          },
+          {
+            "token": "cat",
+            "id": 6,
+            "probability": 0.059567638682050957
+          },
+          {
+            "token": "in",
+            "id": 9,
+            "probability": 0.058054653278471285
+          },
+          {
+            "token": "rug",
+            "id": 15,
+            "probability": 0.05403819039988317
+          },
+          {
+            "token": "tree",
+            "id": 23,
+            "probability": 0.049344473506090135
+          },
+          {
+            "token": "rests",
+            "id": 14,
+            "probability": 0.04301201452754203
+          },
+          {
+            "token": "<bos>",
+            "id": 2,
+            "probability": 0.04199764399781682
+          }
+        ]
+      },
+      "the dog sat on the": {
+        "prediction": "<pad>",
+        "top": [
+          {
+            "token": "<pad>",
+            "id": 0,
+            "probability": 0.11231145838053928
+          },
+          {
+            "token": "happy",
+            "id": 8,
+            "probability": 0.08651784212392738
+          },
+          {
+            "token": "in",
+            "id": 9,
+            "probability": 0.06547513751979331
+          },
+          {
+            "token": "<unk>",
+            "id": 1,
+            "probability": 0.06259642331707924
+          },
+          {
+            "token": "soft",
+            "id": 19,
+            "probability": 0.0547080492126532
+          },
+          {
+            "token": "tree",
+            "id": 23,
+            "probability": 0.049879587165656575
+          },
+          {
+            "token": "cat",
+            "id": 6,
+            "probability": 0.04834714742567578
+          },
+          {
+            "token": "rug",
+            "id": 15,
+            "probability": 0.04779931992461872
+          },
+          {
+            "token": "rests",
+            "id": 14,
+            "probability": 0.04589912823224184
+          },
+          {
+            "token": "bird",
+            "id": 5,
+            "probability": 0.03830325864595753
+          }
+        ]
+      }
+    }
+  },
+  "final": {
+    "loss": 0.6201331700949972,
+    "accuracy": 0.7657657657657657,
+    "examples": 30,
+    "step": 300,
+    "probes": {
+      "the cat sat on": {
+        "prediction": "the",
+        "top": [
+          {
+            "token": "the",
+            "id": 21,
+            "probability": 0.9853995968263073
+          },
+          {
+            "token": "a",
+            "id": 4,
+            "probability": 0.005214860526458748
+          },
+          {
+            "token": "on",
+            "id": 13,
+            "probability": 0.0011353654534771212
+          },
+          {
+            "token": "today",
+            "id": 22,
+            "probability": 0.0008502952891177076
+          },
+          {
+            "token": "likes",
+            "id": 11,
+            "probability": 0.0007975014059534079
+          },
+          {
+            "token": "<eos>",
+            "id": 3,
+            "probability": 0.0007743967515023676
+          },
+          {
+            "token": "sleeps",
+            "id": 17,
+            "probability": 0.0007305721809491464
+          },
+          {
+            "token": "is",
+            "id": 10,
+            "probability": 0.0006551620636166959
+          },
+          {
+            "token": "sat",
+            "id": 16,
+            "probability": 0.0005178180068900751
+          },
+          {
+            "token": "rug",
+            "id": 15,
+            "probability": 0.00041655450459465
+          }
+        ]
+      },
+      "the cat sat on the": {
+        "prediction": "mat",
+        "top": [
+          {
+            "token": "mat",
+            "id": 12,
+            "probability": 0.9447627610488855
+          },
+          {
+            "token": "rug",
+            "id": 15,
+            "probability": 0.008089924750125353
+          },
+          {
+            "token": "<pad>",
+            "id": 0,
+            "probability": 0.00717802690194696
+          },
+          {
+            "token": "<eos>",
+            "id": 3,
+            "probability": 0.0041100748241467335
+          },
+          {
+            "token": "sleeps",
+            "id": 17,
+            "probability": 0.0034569288326091107
+          },
+          {
+            "token": "small",
+            "id": 18,
+            "probability": 0.0033461540098403348
+          },
+          {
+            "token": "happy",
+            "id": 8,
+            "probability": 0.003171464110943949
+          },
+          {
+            "token": "rests",
+            "id": 14,
+            "probability": 0.002709810598601177
+          },
+          {
+            "token": "today",
+            "id": 22,
+            "probability": 0.0023568098447431626
+          },
+          {
+            "token": "<bos>",
+            "id": 2,
+            "probability": 0.0023560562070051158
+          }
+        ]
+      },
+      "the dog sat on the": {
+        "prediction": "rug",
+        "top": [
+          {
+            "token": "rug",
+            "id": 15,
+            "probability": 0.927552550030707
+          },
+          {
+            "token": "tree",
+            "id": 23,
+            "probability": 0.013312427591736387
+          },
+          {
+            "token": "mat",
+            "id": 12,
+            "probability": 0.012535836899376167
+          },
+          {
+            "token": "soft",
+            "id": 19,
+            "probability": 0.006026709351266838
+          },
+          {
+            "token": "on",
+            "id": 13,
+            "probability": 0.0055911099275791605
+          },
+          {
+            "token": "rests",
+            "id": 14,
+            "probability": 0.004450284699973347
+          },
+          {
+            "token": "today",
+            "id": 22,
+            "probability": 0.004119174689079594
+          },
+          {
+            "token": "the",
+            "id": 21,
+            "probability": 0.003437387582180085
+          },
+          {
+            "token": "<bos>",
+            "id": 2,
+            "probability": 0.002483441124161074
+          },
+          {
+            "token": "likes",
+            "id": 11,
+            "probability": 0.0023336613898697865
+          }
+        ]
+      }
+    }
+  },
+  "history": [
+    {
+      "step": 1,
+      "batchLoss": 3.394555050226507,
+      "batchAccuracy": 0
+    },
+    {
+      "step": 2,
+      "batchLoss": 3.1000056933302966,
+      "batchAccuracy": 0.06896551724137931
+    },
+    {
+      "step": 3,
+      "batchLoss": 3.1579554172239743,
+      "batchAccuracy": 0.2413793103448276
+    },
+    {
+      "step": 4,
+      "batchLoss": 2.947076322668602,
+      "batchAccuracy": 0.20689655172413793
+    },
+    {
+      "step": 5,
+      "batchLoss": 2.937743563152263,
+      "batchAccuracy": 0.2903225806451613
+    },
+    {
+      "step": 6,
+      "batchLoss": 2.834867141737676,
+      "batchAccuracy": 0.3333333333333333
+    },
+    {
+      "step": 7,
+      "batchLoss": 2.7524750701219736,
+      "batchAccuracy": 0.27586206896551724
+    },
+    {
+      "step": 8,
+      "batchLoss": 2.7132716085259156,
+      "batchAccuracy": 0.2413793103448276
+    },
+    {
+      "step": 9,
+      "batchLoss": 2.6926876545766536,
+      "batchAccuracy": 0.3225806451612903
+    },
+    {
+      "step": 10,
+      "batchLoss": 2.6035635164435194,
+      "batchAccuracy": 0.25806451612903225
+    },
+    {
+      "step": 11,
+      "batchLoss": 2.631220320773105,
+      "batchAccuracy": 0.3548387096774194
+    },
+    {
+      "step": 12,
+      "batchLoss": 2.5304034577532226,
+      "batchAccuracy": 0.3448275862068966
+    },
+    {
+      "step": 13,
+      "batchLoss": 2.497353486875346,
+      "batchAccuracy": 0.42857142857142855
+    },
+    {
+      "step": 14,
+      "batchLoss": 2.6089861564735477,
+      "batchAccuracy": 0.36666666666666664
+    },
+    {
+      "step": 15,
+      "batchLoss": 2.4559675482917855,
+      "batchAccuracy": 0.41379310344827586
+    },
+    {
+      "step": 16,
+      "batchLoss": 2.358298970302057,
+      "batchAccuracy": 0.4482758620689655
+    },
+    {
+      "step": 17,
+      "batchLoss": 2.1857502856197435,
+      "batchAccuracy": 0.5483870967741935
+    },
+    {
+      "step": 18,
+      "batchLoss": 2.3790891691092066,
+      "batchAccuracy": 0.3548387096774194
+    },
+    {
+      "step": 19,
+      "batchLoss": 2.420118658707458,
+      "batchAccuracy": 0.4
+    },
+    {
+      "step": 20,
+      "batchLoss": 2.560738047312534,
+      "batchAccuracy": 0.27586206896551724
+    },
+    {
+      "step": 21,
+      "batchLoss": 2.339286440499384,
+      "batchAccuracy": 0.3870967741935484
+    },
+    {
+      "step": 22,
+      "batchLoss": 2.1407505388439696,
+      "batchAccuracy": 0.5161290322580645
+    },
+    {
+      "step": 23,
+      "batchLoss": 1.9069046854396348,
+      "batchAccuracy": 0.5517241379310345
+    },
+    {
+      "step": 24,
+      "batchLoss": 2.0089760844099245,
+      "batchAccuracy": 0.5172413793103449
+    },
+    {
+      "step": 25,
+      "batchLoss": 1.9916637731865001,
+      "batchAccuracy": 0.5333333333333333
+    },
+    {
+      "step": 26,
+      "batchLoss": 2.0125670739136416,
+      "batchAccuracy": 0.6
+    },
+    {
+      "step": 27,
+      "batchLoss": 2.2629710814668687,
+      "batchAccuracy": 0.43333333333333335
+    },
+    {
+      "step": 28,
+      "batchLoss": 1.987124260172604,
+      "batchAccuracy": 0.4827586206896552
+    },
+    {
+      "step": 29,
+      "batchLoss": 1.7890167502836258,
+      "batchAccuracy": 0.6333333333333333
+    },
+    {
+      "step": 30,
+      "batchLoss": 2.0046905811227616,
+      "batchAccuracy": 0.5517241379310345
+    },
+    {
+      "step": 31,
+      "batchLoss": 1.9520295434519697,
+      "batchAccuracy": 0.5161290322580645
+    },
+    {
+      "step": 32,
+      "batchLoss": 1.976330231595005,
+      "batchAccuracy": 0.5666666666666667
+    },
+    {
+      "step": 33,
+      "batchLoss": 1.7129776307522353,
+      "batchAccuracy": 0.7
+    },
+    {
+      "step": 34,
+      "batchLoss": 1.555662272596149,
+      "batchAccuracy": 0.7666666666666667
+    },
+    {
+      "step": 35,
+      "batchLoss": 1.9360279589919278,
+      "batchAccuracy": 0.5
+    },
+    {
+      "step": 36,
+      "batchLoss": 1.8036932834367319,
+      "batchAccuracy": 0.6428571428571429
+    },
+    {
+      "step": 37,
+      "batchLoss": 1.768869721845562,
+      "batchAccuracy": 0.5
+    },
+    {
+      "step": 38,
+      "batchLoss": 1.7378755729368984,
+      "batchAccuracy": 0.6551724137931034
+    },
+    {
+      "step": 39,
+      "batchLoss": 1.6342703530770646,
+      "batchAccuracy": 0.6206896551724138
+    },
+    {
+      "step": 40,
+      "batchLoss": 1.8868211469737097,
+      "batchAccuracy": 0.5172413793103449
+    },
+    {
+      "step": 41,
+      "batchLoss": 1.4336088680182455,
+      "batchAccuracy": 0.6666666666666666
+    },
+    {
+      "step": 42,
+      "batchLoss": 1.7605804172090216,
+      "batchAccuracy": 0.6206896551724138
+    },
+    {
+      "step": 43,
+      "batchLoss": 2.000123685585582,
+      "batchAccuracy": 0.5
+    },
+    {
+      "step": 44,
+      "batchLoss": 1.9297639148368937,
+      "batchAccuracy": 0.5483870967741935
+    },
+    {
+      "step": 45,
+      "batchLoss": 1.6057081302382716,
+      "batchAccuracy": 0.7
+    },
+    {
+      "step": 46,
+      "batchLoss": 1.7010684153086812,
+      "batchAccuracy": 0.5666666666666667
+    },
+    {
+      "step": 47,
+      "batchLoss": 1.6227907273719406,
+      "batchAccuracy": 0.6428571428571429
+    },
+    {
+      "step": 48,
+      "batchLoss": 1.4581155681764364,
+      "batchAccuracy": 0.7096774193548387
+    },
+    {
+      "step": 49,
+      "batchLoss": 1.6078098144167117,
+      "batchAccuracy": 0.6551724137931034
+    },
+    {
+      "step": 50,
+      "batchLoss": 1.7200401543642156,
+      "batchAccuracy": 0.5862068965517241
+    },
+    {
+      "step": 51,
+      "batchLoss": 1.3648983499320837,
+      "batchAccuracy": 0.8064516129032258
+    },
+    {
+      "step": 52,
+      "batchLoss": 1.3210833761482208,
+      "batchAccuracy": 0.7142857142857143
+    },
+    {
+      "step": 53,
+      "batchLoss": 1.8889750656161137,
+      "batchAccuracy": 0.4666666666666667
+    },
+    {
+      "step": 54,
+      "batchLoss": 1.369884279051492,
+      "batchAccuracy": 0.7333333333333333
+    },
+    {
+      "step": 55,
+      "batchLoss": 1.175188251818458,
+      "batchAccuracy": 0.8
+    },
+    {
+      "step": 56,
+      "batchLoss": 1.4372850646860669,
+      "batchAccuracy": 0.7586206896551724
+    },
+    {
+      "step": 57,
+      "batchLoss": 1.5906698075600487,
+      "batchAccuracy": 0.6666666666666666
+    },
+    {
+      "step": 58,
+      "batchLoss": 1.5429908902751885,
+      "batchAccuracy": 0.5714285714285714
+    },
+    {
+      "step": 59,
+      "batchLoss": 1.3458309695979,
+      "batchAccuracy": 0.7333333333333333
+    },
+    {
+      "step": 60,
+      "batchLoss": 1.382144037451933,
+      "batchAccuracy": 0.6896551724137931
+    },
+    {
+      "step": 61,
+      "batchLoss": 1.4172503339103268,
+      "batchAccuracy": 0.6774193548387096
+    },
+    {
+      "step": 62,
+      "batchLoss": 1.4724270472122942,
+      "batchAccuracy": 0.6428571428571429
+    },
+    {
+      "step": 63,
+      "batchLoss": 1.2405297841500975,
+      "batchAccuracy": 0.7333333333333333
+    },
+    {
+      "step": 64,
+      "batchLoss": 1.370531327846618,
+      "batchAccuracy": 0.6774193548387096
+    },
+    {
+      "step": 65,
+      "batchLoss": 1.40520026411906,
+      "batchAccuracy": 0.6428571428571429
+    },
+    {
+      "step": 66,
+      "batchLoss": 1.3046215060632258,
+      "batchAccuracy": 0.7333333333333333
+    },
+    {
+      "step": 67,
+      "batchLoss": 1.458908863186985,
+      "batchAccuracy": 0.6206896551724138
+    },
+    {
+      "step": 68,
+      "batchLoss": 1.2452359716463703,
+      "batchAccuracy": 0.6896551724137931
+    },
+    {
+      "step": 69,
+      "batchLoss": 1.5707487421389554,
+      "batchAccuracy": 0.59375
+    },
+    {
+      "step": 70,
+      "batchLoss": 1.1050264655664144,
+      "batchAccuracy": 0.7741935483870968
+    },
+    {
+      "step": 71,
+      "batchLoss": 1.3650050050823532,
+      "batchAccuracy": 0.7142857142857143
+    },
+    {
+      "step": 72,
+      "batchLoss": 1.2895709445913486,
+      "batchAccuracy": 0.7241379310344828
+    },
+    {
+      "step": 73,
+      "batchLoss": 1.3742025896532226,
+      "batchAccuracy": 0.6666666666666666
+    },
+    {
+      "step": 74,
+      "batchLoss": 1.1941661456511061,
+      "batchAccuracy": 0.6551724137931034
+    },
+    {
+      "step": 75,
+      "batchLoss": 1.2946408683957937,
+      "batchAccuracy": 0.6333333333333333
+    },
+    {
+      "step": 76,
+      "batchLoss": 1.1363333216249794,
+      "batchAccuracy": 0.7142857142857143
+    },
+    {
+      "step": 77,
+      "batchLoss": 1.4972475016311901,
+      "batchAccuracy": 0.5625
+    },
+    {
+      "step": 78,
+      "batchLoss": 1.1208717373394614,
+      "batchAccuracy": 0.7142857142857143
+    },
+    {
+      "step": 79,
+      "batchLoss": 1.1616826186944316,
+      "batchAccuracy": 0.7241379310344828
+    },
+    {
+      "step": 80,
+      "batchLoss": 1.386511993997705,
+      "batchAccuracy": 0.6129032258064516
+    },
+    {
+      "step": 81,
+      "batchLoss": 1.2488346517700242,
+      "batchAccuracy": 0.6896551724137931
+    },
+    {
+      "step": 82,
+      "batchLoss": 1.0493373221078799,
+      "batchAccuracy": 0.7241379310344828
+    },
+    {
+      "step": 83,
+      "batchLoss": 1.017873955365521,
+      "batchAccuracy": 0.7
+    },
+    {
+      "step": 84,
+      "batchLoss": 1.3793285328262277,
+      "batchAccuracy": 0.625
+    },
+    {
+      "step": 85,
+      "batchLoss": 1.1065954787531038,
+      "batchAccuracy": 0.7
+    },
+    {
+      "step": 86,
+      "batchLoss": 1.2868363316398663,
+      "batchAccuracy": 0.65625
+    },
+    {
+      "step": 87,
+      "batchLoss": 1.0607882345671604,
+      "batchAccuracy": 0.7333333333333333
+    },
+    {
+      "step": 88,
+      "batchLoss": 1.4829480664327621,
+      "batchAccuracy": 0.5862068965517241
+    },
+    {
+      "step": 89,
+      "batchLoss": 1.0355136304227957,
+      "batchAccuracy": 0.7241379310344828
+    },
+    {
+      "step": 90,
+      "batchLoss": 0.9904849313521223,
+      "batchAccuracy": 0.7333333333333333
+    },
+    {
+      "step": 91,
+      "batchLoss": 1.1524838850730479,
+      "batchAccuracy": 0.6666666666666666
+    },
+    {
+      "step": 92,
+      "batchLoss": 1.1232027703248746,
+      "batchAccuracy": 0.6428571428571429
+    },
+    {
+      "step": 93,
+      "batchLoss": 1.0120462347307766,
+      "batchAccuracy": 0.7586206896551724
+    },
+    {
+      "step": 94,
+      "batchLoss": 1.2252645845320584,
+      "batchAccuracy": 0.6774193548387096
+    },
+    {
+      "step": 95,
+      "batchLoss": 1.1500281928810019,
+      "batchAccuracy": 0.6666666666666666
+    },
+    {
+      "step": 96,
+      "batchLoss": 1.262444254098182,
+      "batchAccuracy": 0.5862068965517241
+    },
+    {
+      "step": 97,
+      "batchLoss": 1.0416983905574986,
+      "batchAccuracy": 0.7333333333333333
+    },
+    {
+      "step": 98,
+      "batchLoss": 1.1689874133779603,
+      "batchAccuracy": 0.6666666666666666
+    },
+    {
+      "step": 99,
+      "batchLoss": 1.059030937288644,
+      "batchAccuracy": 0.6333333333333333
+    },
+    {
+      "step": 100,
+      "batchLoss": 1.0422976358299931,
+      "batchAccuracy": 0.6551724137931034
+    },
+    {
+      "step": 101,
+      "batchLoss": 1.15973232978614,
+      "batchAccuracy": 0.6666666666666666
+    },
+    {
+      "step": 102,
+      "batchLoss": 1.2450911665455768,
+      "batchAccuracy": 0.7142857142857143
+    },
+    {
+      "step": 103,
+      "batchLoss": 1.0069363683209833,
+      "batchAccuracy": 0.6666666666666666
+    },
+    {
+      "step": 104,
+      "batchLoss": 1.0461966063618036,
+      "batchAccuracy": 0.7
+    },
+    {
+      "step": 105,
+      "batchLoss": 1.2700458576770817,
+      "batchAccuracy": 0.6451612903225806
+    },
+    {
+      "step": 106,
+      "batchLoss": 0.9702482466329783,
+      "batchAccuracy": 0.7741935483870968
+    },
+    {
+      "step": 107,
+      "batchLoss": 0.7480562908993379,
+      "batchAccuracy": 0.7931034482758621
+    },
+    {
+      "step": 108,
+      "batchLoss": 1.0111183421427472,
+      "batchAccuracy": 0.7142857142857143
+    },
+    {
+      "step": 109,
+      "batchLoss": 1.0111403030726556,
+      "batchAccuracy": 0.7096774193548387
+    },
+    {
+      "step": 110,
+      "batchLoss": 1.0738675220238771,
+      "batchAccuracy": 0.6896551724137931
+    },
+    {
+      "step": 111,
+      "batchLoss": 0.9755304300317669,
+      "batchAccuracy": 0.7
+    },
+    {
+      "step": 112,
+      "batchLoss": 0.9675604155155124,
+      "batchAccuracy": 0.7931034482758621
+    },
+    {
+      "step": 113,
+      "batchLoss": 1.036135219326523,
+      "batchAccuracy": 0.75
+    },
+    {
+      "step": 114,
+      "batchLoss": 1.0141928399981541,
+      "batchAccuracy": 0.6206896551724138
+    },
+    {
+      "step": 115,
+      "batchLoss": 0.95078385819178,
+      "batchAccuracy": 0.7931034482758621
+    },
+    {
+      "step": 116,
+      "batchLoss": 0.948018352365009,
+      "batchAccuracy": 0.6666666666666666
+    },
+    {
+      "step": 117,
+      "batchLoss": 0.8975542344650486,
+      "batchAccuracy": 0.7142857142857143
+    },
+    {
+      "step": 118,
+      "batchLoss": 1.0258710511504707,
+      "batchAccuracy": 0.6785714285714286
+    },
+    {
+      "step": 119,
+      "batchLoss": 0.7932796884268817,
+      "batchAccuracy": 0.7857142857142857
+    },
+    {
+      "step": 120,
+      "batchLoss": 0.9725749391954511,
+      "batchAccuracy": 0.7419354838709677
+    },
+    {
+      "step": 121,
+      "batchLoss": 1.0999471994065368,
+      "batchAccuracy": 0.6333333333333333
+    },
+    {
+      "step": 122,
+      "batchLoss": 0.9423174548749926,
+      "batchAccuracy": 0.7241379310344828
+    },
+    {
+      "step": 123,
+      "batchLoss": 1.085140682417225,
+      "batchAccuracy": 0.6774193548387096
+    },
+    {
+      "step": 124,
+      "batchLoss": 1.0524923417277463,
+      "batchAccuracy": 0.7666666666666667
+    },
+    {
+      "step": 125,
+      "batchLoss": 0.8710789112863392,
+      "batchAccuracy": 0.7586206896551724
+    },
+    {
+      "step": 126,
+      "batchLoss": 0.841513664630706,
+      "batchAccuracy": 0.7241379310344828
+    },
+    {
+      "step": 127,
+      "batchLoss": 1.0568416361429114,
+      "batchAccuracy": 0.6896551724137931
+    },
+    {
+      "step": 128,
+      "batchLoss": 0.9490651126171104,
+      "batchAccuracy": 0.7241379310344828
+    },
+    {
+      "step": 129,
+      "batchLoss": 0.8321121214886023,
+      "batchAccuracy": 0.8
+    },
+    {
+      "step": 130,
+      "batchLoss": 1.138825191484798,
+      "batchAccuracy": 0.6551724137931034
+    },
+    {
+      "step": 131,
+      "batchLoss": 0.7501993511352496,
+      "batchAccuracy": 0.8333333333333334
+    },
+    {
+      "step": 132,
+      "batchLoss": 0.9421826231315857,
+      "batchAccuracy": 0.7333333333333333
+    },
+    {
+      "step": 133,
+      "batchLoss": 0.7223253991273862,
+      "batchAccuracy": 0.8333333333333334
+    },
+    {
+      "step": 134,
+      "batchLoss": 0.9918989386658001,
+      "batchAccuracy": 0.7241379310344828
+    },
+    {
+      "step": 135,
+      "batchLoss": 0.8093190249426749,
+      "batchAccuracy": 0.7333333333333333
+    },
+    {
+      "step": 136,
+      "batchLoss": 0.8305972004648412,
+      "batchAccuracy": 0.7666666666666667
+    },
+    {
+      "step": 137,
+      "batchLoss": 1.082593798797946,
+      "batchAccuracy": 0.6774193548387096
+    },
+    {
+      "step": 138,
+      "batchLoss": 0.7511462195599273,
+      "batchAccuracy": 0.8275862068965517
+    },
+    {
+      "step": 139,
+      "batchLoss": 0.8012736018094316,
+      "batchAccuracy": 0.7857142857142857
+    },
+    {
+      "step": 140,
+      "batchLoss": 0.865524909633985,
+      "batchAccuracy": 0.7333333333333333
+    },
+    {
+      "step": 141,
+      "batchLoss": 0.7993144077993735,
+      "batchAccuracy": 0.7666666666666667
+    },
+    {
+      "step": 142,
+      "batchLoss": 0.7433260648189907,
+      "batchAccuracy": 0.8620689655172413
+    },
+    {
+      "step": 143,
+      "batchLoss": 0.9415779071933954,
+      "batchAccuracy": 0.7333333333333333
+    },
+    {
+      "step": 144,
+      "batchLoss": 1.117540229790795,
+      "batchAccuracy": 0.6206896551724138
+    },
+    {
+      "step": 145,
+      "batchLoss": 0.736785808364836,
+      "batchAccuracy": 0.7931034482758621
+    },
+    {
+      "step": 146,
+      "batchLoss": 0.9009797528681516,
+      "batchAccuracy": 0.7333333333333333
+    },
+    {
+      "step": 147,
+      "batchLoss": 0.8177184819906131,
+      "batchAccuracy": 0.7241379310344828
+    },
+    {
+      "step": 148,
+      "batchLoss": 0.883646288335067,
+      "batchAccuracy": 0.6666666666666666
+    },
+    {
+      "step": 149,
+      "batchLoss": 0.9612584543536888,
+      "batchAccuracy": 0.7241379310344828
+    },
+    {
+      "step": 150,
+      "batchLoss": 0.8968604263993899,
+      "batchAccuracy": 0.6896551724137931
+    },
+    {
+      "step": 151,
+      "batchLoss": 0.705365265182684,
+      "batchAccuracy": 0.7931034482758621
+    },
+    {
+      "step": 152,
+      "batchLoss": 0.8974562655363567,
+      "batchAccuracy": 0.7419354838709677
+    },
+    {
+      "step": 153,
+      "batchLoss": 0.7950243865424187,
+      "batchAccuracy": 0.7931034482758621
+    },
+    {
+      "step": 154,
+      "batchLoss": 0.7287914327448076,
+      "batchAccuracy": 0.8275862068965517
+    },
+    {
+      "step": 155,
+      "batchLoss": 0.8958518058087717,
+      "batchAccuracy": 0.8
+    },
+    {
+      "step": 156,
+      "batchLoss": 0.8124696292966274,
+      "batchAccuracy": 0.7333333333333333
+    },
+    {
+      "step": 157,
+      "batchLoss": 0.75459688419817,
+      "batchAccuracy": 0.8214285714285714
+    },
+    {
+      "step": 158,
+      "batchLoss": 0.8654373133896376,
+      "batchAccuracy": 0.7586206896551724
+    },
+    {
+      "step": 159,
+      "batchLoss": 0.8218520346841224,
+      "batchAccuracy": 0.8
+    },
+    {
+      "step": 160,
+      "batchLoss": 0.885429339150383,
+      "batchAccuracy": 0.7741935483870968
+    },
+    {
+      "step": 161,
+      "batchLoss": 0.8982103491865143,
+      "batchAccuracy": 0.6896551724137931
+    },
+    {
+      "step": 162,
+      "batchLoss": 0.7834085033921288,
+      "batchAccuracy": 0.7586206896551724
+    },
+    {
+      "step": 163,
+      "batchLoss": 0.8024733971277721,
+      "batchAccuracy": 0.7586206896551724
+    },
+    {
+      "step": 164,
+      "batchLoss": 0.7429055933752435,
+      "batchAccuracy": 0.7931034482758621
+    },
+    {
+      "step": 165,
+      "batchLoss": 0.7500560809120982,
+      "batchAccuracy": 0.7333333333333333
+    },
+    {
+      "step": 166,
+      "batchLoss": 0.6928750557297114,
+      "batchAccuracy": 0.8333333333333334
+    },
+    {
+      "step": 167,
+      "batchLoss": 0.8336396668931542,
+      "batchAccuracy": 0.7419354838709677
+    },
+    {
+      "step": 168,
+      "batchLoss": 0.9074047692759435,
+      "batchAccuracy": 0.7
+    },
+    {
+      "step": 169,
+      "batchLoss": 0.8256992406821226,
+      "batchAccuracy": 0.75
+    },
+    {
+      "step": 170,
+      "batchLoss": 0.6927768183735594,
+      "batchAccuracy": 0.8666666666666667
+    },
+    {
+      "step": 171,
+      "batchLoss": 0.7868166878597587,
+      "batchAccuracy": 0.7142857142857143
+    },
+    {
+      "step": 172,
+      "batchLoss": 0.7418921424913807,
+      "batchAccuracy": 0.8064516129032258
+    },
+    {
+      "step": 173,
+      "batchLoss": 0.680497968172034,
+      "batchAccuracy": 0.7931034482758621
+    },
+    {
+      "step": 174,
+      "batchLoss": 0.7543119856446432,
+      "batchAccuracy": 0.8
+    },
+    {
+      "step": 175,
+      "batchLoss": 0.7467833043839966,
+      "batchAccuracy": 0.7241379310344828
+    },
+    {
+      "step": 176,
+      "batchLoss": 0.7011512051048425,
+      "batchAccuracy": 0.7666666666666667
+    },
+    {
+      "step": 177,
+      "batchLoss": 0.8352848873625972,
+      "batchAccuracy": 0.7741935483870968
+    },
+    {
+      "step": 178,
+      "batchLoss": 0.6474378560846985,
+      "batchAccuracy": 0.8275862068965517
+    },
+    {
+      "step": 179,
+      "batchLoss": 0.7133865685351438,
+      "batchAccuracy": 0.7333333333333333
+    },
+    {
+      "step": 180,
+      "batchLoss": 0.7643770316380063,
+      "batchAccuracy": 0.7931034482758621
+    },
+    {
+      "step": 181,
+      "batchLoss": 0.7099457868669307,
+      "batchAccuracy": 0.7931034482758621
+    },
+    {
+      "step": 182,
+      "batchLoss": 0.9475727717398172,
+      "batchAccuracy": 0.7096774193548387
+    },
+    {
+      "step": 183,
+      "batchLoss": 0.7307062328764341,
+      "batchAccuracy": 0.8275862068965517
+    },
+    {
+      "step": 184,
+      "batchLoss": 0.8616560665252626,
+      "batchAccuracy": 0.6785714285714286
+    },
+    {
+      "step": 185,
+      "batchLoss": 0.7408144106317258,
+      "batchAccuracy": 0.8
+    },
+    {
+      "step": 186,
+      "batchLoss": 0.7408884263482195,
+      "batchAccuracy": 0.7586206896551724
+    },
+    {
+      "step": 187,
+      "batchLoss": 0.7409811806309214,
+      "batchAccuracy": 0.7666666666666667
+    },
+    {
+      "step": 188,
+      "batchLoss": 0.6969362715748808,
+      "batchAccuracy": 0.7586206896551724
+    },
+    {
+      "step": 189,
+      "batchLoss": 0.806207557203436,
+      "batchAccuracy": 0.6774193548387096
+    },
+    {
+      "step": 190,
+      "batchLoss": 0.6404001870085371,
+      "batchAccuracy": 0.7586206896551724
+    },
+    {
+      "step": 191,
+      "batchLoss": 0.690567455301837,
+      "batchAccuracy": 0.7931034482758621
+    },
+    {
+      "step": 192,
+      "batchLoss": 0.7512886048088787,
+      "batchAccuracy": 0.7333333333333333
+    },
+    {
+      "step": 193,
+      "batchLoss": 0.6898530811542563,
+      "batchAccuracy": 0.7666666666666667
+    },
+    {
+      "step": 194,
+      "batchLoss": 0.7675097436339849,
+      "batchAccuracy": 0.7666666666666667
+    },
+    {
+      "step": 195,
+      "batchLoss": 0.5646829380560114,
+      "batchAccuracy": 0.8214285714285714
+    },
+    {
+      "step": 196,
+      "batchLoss": 0.609379400957535,
+      "batchAccuracy": 0.8275862068965517
+    },
+    {
+      "step": 197,
+      "batchLoss": 0.7488384021157972,
+      "batchAccuracy": 0.7333333333333333
+    },
+    {
+      "step": 198,
+      "batchLoss": 0.7167447855117082,
+      "batchAccuracy": 0.7
+    },
+    {
+      "step": 199,
+      "batchLoss": 0.7276532432676754,
+      "batchAccuracy": 0.7142857142857143
+    },
+    {
+      "step": 200,
+      "batchLoss": 0.7629228372780823,
+      "batchAccuracy": 0.8
+    },
+    {
+      "step": 201,
+      "batchLoss": 0.6731671180338926,
+      "batchAccuracy": 0.7666666666666667
+    },
+    {
+      "step": 202,
+      "batchLoss": 0.6206484764604034,
+      "batchAccuracy": 0.7586206896551724
+    },
+    {
+      "step": 203,
+      "batchLoss": 0.8653839317987531,
+      "batchAccuracy": 0.6875
+    },
+    {
+      "step": 204,
+      "batchLoss": 0.7342099894855315,
+      "batchAccuracy": 0.7586206896551724
+    },
+    {
+      "step": 205,
+      "batchLoss": 0.7344738653104788,
+      "batchAccuracy": 0.7666666666666667
+    },
+    {
+      "step": 206,
+      "batchLoss": 0.7008369273762003,
+      "batchAccuracy": 0.75
+    },
+    {
+      "step": 207,
+      "batchLoss": 0.817605355067139,
+      "batchAccuracy": 0.7
+    },
+    {
+      "step": 208,
+      "batchLoss": 0.7103067536116087,
+      "batchAccuracy": 0.7666666666666667
+    },
+    {
+      "step": 209,
+      "batchLoss": 0.7822807783972409,
+      "batchAccuracy": 0.6551724137931034
+    },
+    {
+      "step": 210,
+      "batchLoss": 0.7342727091572364,
+      "batchAccuracy": 0.7857142857142857
+    },
+    {
+      "step": 211,
+      "batchLoss": 0.7862896789953855,
+      "batchAccuracy": 0.7096774193548387
+    },
+    {
+      "step": 212,
+      "batchLoss": 0.729447824283686,
+      "batchAccuracy": 0.7
+    },
+    {
+      "step": 213,
+      "batchLoss": 0.6987339423457568,
+      "batchAccuracy": 0.7142857142857143
+    },
+    {
+      "step": 214,
+      "batchLoss": 0.7303546255656614,
+      "batchAccuracy": 0.7333333333333333
+    },
+    {
+      "step": 215,
+      "batchLoss": 0.6061710731377583,
+      "batchAccuracy": 0.8275862068965517
+    },
+    {
+      "step": 216,
+      "batchLoss": 0.7585536242038443,
+      "batchAccuracy": 0.8064516129032258
+    },
+    {
+      "step": 217,
+      "batchLoss": 0.634505551843017,
+      "batchAccuracy": 0.8
+    },
+    {
+      "step": 218,
+      "batchLoss": 0.7875385340800161,
+      "batchAccuracy": 0.7333333333333333
+    },
+    {
+      "step": 219,
+      "batchLoss": 0.7405105623243291,
+      "batchAccuracy": 0.7666666666666667
+    },
+    {
+      "step": 220,
+      "batchLoss": 0.7496937268835042,
+      "batchAccuracy": 0.7333333333333333
+    },
+    {
+      "step": 221,
+      "batchLoss": 0.6191876694170346,
+      "batchAccuracy": 0.7666666666666667
+    },
+    {
+      "step": 222,
+      "batchLoss": 0.6882202201152292,
+      "batchAccuracy": 0.7741935483870968
+    },
+    {
+      "step": 223,
+      "batchLoss": 0.7080725686560009,
+      "batchAccuracy": 0.7333333333333333
+    },
+    {
+      "step": 224,
+      "batchLoss": 0.6768825995833858,
+      "batchAccuracy": 0.7142857142857143
+    },
+    {
+      "step": 225,
+      "batchLoss": 0.7247991533530822,
+      "batchAccuracy": 0.7
+    },
+    {
+      "step": 226,
+      "batchLoss": 0.6338482734470214,
+      "batchAccuracy": 0.7586206896551724
+    },
+    {
+      "step": 227,
+      "batchLoss": 0.685416623181696,
+      "batchAccuracy": 0.7333333333333333
+    },
+    {
+      "step": 228,
+      "batchLoss": 0.6928825011735662,
+      "batchAccuracy": 0.78125
+    },
+    {
+      "step": 229,
+      "batchLoss": 0.7470132070433112,
+      "batchAccuracy": 0.7666666666666667
+    },
+    {
+      "step": 230,
+      "batchLoss": 0.7057855856569841,
+      "batchAccuracy": 0.7333333333333333
+    },
+    {
+      "step": 231,
+      "batchLoss": 0.5818340868844296,
+      "batchAccuracy": 0.8620689655172413
+    },
+    {
+      "step": 232,
+      "batchLoss": 0.6587803327478581,
+      "batchAccuracy": 0.8
+    },
+    {
+      "step": 233,
+      "batchLoss": 0.6349286920339157,
+      "batchAccuracy": 0.7931034482758621
+    },
+    {
+      "step": 234,
+      "batchLoss": 0.6173630912509785,
+      "batchAccuracy": 0.75
+    },
+    {
+      "step": 235,
+      "batchLoss": 0.694461045072124,
+      "batchAccuracy": 0.7586206896551724
+    },
+    {
+      "step": 236,
+      "batchLoss": 0.6298849194747647,
+      "batchAccuracy": 0.75
+    },
+    {
+      "step": 237,
+      "batchLoss": 0.6505006387615112,
+      "batchAccuracy": 0.7
+    },
+    {
+      "step": 238,
+      "batchLoss": 0.6517286581321078,
+      "batchAccuracy": 0.7241379310344828
+    },
+    {
+      "step": 239,
+      "batchLoss": 0.6843141282028737,
+      "batchAccuracy": 0.8064516129032258
+    },
+    {
+      "step": 240,
+      "batchLoss": 0.5477416493920029,
+      "batchAccuracy": 0.8275862068965517
+    },
+    {
+      "step": 241,
+      "batchLoss": 0.6283539404041005,
+      "batchAccuracy": 0.8333333333333334
+    },
+    {
+      "step": 242,
+      "batchLoss": 0.6859725656102064,
+      "batchAccuracy": 0.7586206896551724
+    },
+    {
+      "step": 243,
+      "batchLoss": 0.6153663909431525,
+      "batchAccuracy": 0.75
+    },
+    {
+      "step": 244,
+      "batchLoss": 0.6510931250707496,
+      "batchAccuracy": 0.7241379310344828
+    },
+    {
+      "step": 245,
+      "batchLoss": 0.7179571308253077,
+      "batchAccuracy": 0.75
+    },
+    {
+      "step": 246,
+      "batchLoss": 0.7944049253384284,
+      "batchAccuracy": 0.7241379310344828
+    },
+    {
+      "step": 247,
+      "batchLoss": 0.6530968506177913,
+      "batchAccuracy": 0.7741935483870968
+    },
+    {
+      "step": 248,
+      "batchLoss": 0.6822513866788089,
+      "batchAccuracy": 0.7857142857142857
+    },
+    {
+      "step": 249,
+      "batchLoss": 0.7110476669585797,
+      "batchAccuracy": 0.7586206896551724
+    },
+    {
+      "step": 250,
+      "batchLoss": 0.6751960864659792,
+      "batchAccuracy": 0.8
+    },
+    {
+      "step": 251,
+      "batchLoss": 0.571551559633491,
+      "batchAccuracy": 0.7586206896551724
+    },
+    {
+      "step": 252,
+      "batchLoss": 0.849356079409901,
+      "batchAccuracy": 0.6451612903225806
+    },
+    {
+      "step": 253,
+      "batchLoss": 0.6156805361326323,
+      "batchAccuracy": 0.8666666666666667
+    },
+    {
+      "step": 254,
+      "batchLoss": 0.6675217129923096,
+      "batchAccuracy": 0.8125
+    },
+    {
+      "step": 255,
+      "batchLoss": 0.6743994564942738,
+      "batchAccuracy": 0.7333333333333333
+    },
+    {
+      "step": 256,
+      "batchLoss": 0.5580938904304305,
+      "batchAccuracy": 0.9032258064516129
+    },
+    {
+      "step": 257,
+      "batchLoss": 0.6872532506931326,
+      "batchAccuracy": 0.7333333333333333
+    },
+    {
+      "step": 258,
+      "batchLoss": 0.7416365541677195,
+      "batchAccuracy": 0.6896551724137931
+    },
+    {
+      "step": 259,
+      "batchLoss": 0.6747677132895041,
+      "batchAccuracy": 0.7333333333333333
+    },
+    {
+      "step": 260,
+      "batchLoss": 0.6629461740201518,
+      "batchAccuracy": 0.7931034482758621
+    },
+    {
+      "step": 261,
+      "batchLoss": 0.6191001958632172,
+      "batchAccuracy": 0.7333333333333333
+    },
+    {
+      "step": 262,
+      "batchLoss": 0.6059995834868823,
+      "batchAccuracy": 0.8
+    },
+    {
+      "step": 263,
+      "batchLoss": 0.7203741210925867,
+      "batchAccuracy": 0.7241379310344828
+    },
+    {
+      "step": 264,
+      "batchLoss": 0.6094771402390498,
+      "batchAccuracy": 0.8
+    },
+    {
+      "step": 265,
+      "batchLoss": 0.6166977044181897,
+      "batchAccuracy": 0.7586206896551724
+    },
+    {
+      "step": 266,
+      "batchLoss": 0.6799989531302885,
+      "batchAccuracy": 0.7586206896551724
+    },
+    {
+      "step": 267,
+      "batchLoss": 0.7056240598668321,
+      "batchAccuracy": 0.7142857142857143
+    },
+    {
+      "step": 268,
+      "batchLoss": 0.6132598254640085,
+      "batchAccuracy": 0.8387096774193549
+    },
+    {
+      "step": 269,
+      "batchLoss": 0.6545165725881669,
+      "batchAccuracy": 0.7142857142857143
+    },
+    {
+      "step": 270,
+      "batchLoss": 0.636277225758055,
+      "batchAccuracy": 0.8666666666666667
+    },
+    {
+      "step": 271,
+      "batchLoss": 0.6376332811370653,
+      "batchAccuracy": 0.8
+    },
+    {
+      "step": 272,
+      "batchLoss": 0.6963899607083953,
+      "batchAccuracy": 0.7741935483870968
+    },
+    {
+      "step": 273,
+      "batchLoss": 0.7002960590246284,
+      "batchAccuracy": 0.7241379310344828
+    },
+    {
+      "step": 274,
+      "batchLoss": 0.6889646586894327,
+      "batchAccuracy": 0.7
+    },
+    {
+      "step": 275,
+      "batchLoss": 0.6094480231594828,
+      "batchAccuracy": 0.7586206896551724
+    },
+    {
+      "step": 276,
+      "batchLoss": 0.7006759313895944,
+      "batchAccuracy": 0.7586206896551724
+    },
+    {
+      "step": 277,
+      "batchLoss": 0.6646593737528455,
+      "batchAccuracy": 0.8125
+    },
+    {
+      "step": 278,
+      "batchLoss": 0.5205053513080727,
+      "batchAccuracy": 0.8275862068965517
+    },
+    {
+      "step": 279,
+      "batchLoss": 0.5761847926506038,
+      "batchAccuracy": 0.7666666666666667
+    },
+    {
+      "step": 280,
+      "batchLoss": 0.7156444057952159,
+      "batchAccuracy": 0.7333333333333333
+    },
+    {
+      "step": 281,
+      "batchLoss": 0.609065244100562,
+      "batchAccuracy": 0.7857142857142857
+    },
+    {
+      "step": 282,
+      "batchLoss": 0.6968167377502483,
+      "batchAccuracy": 0.75
+    },
+    {
+      "step": 283,
+      "batchLoss": 0.6217384267589536,
+      "batchAccuracy": 0.8387096774193549
+    },
+    {
+      "step": 284,
+      "batchLoss": 0.6266523737395102,
+      "batchAccuracy": 0.7586206896551724
+    },
+    {
+      "step": 285,
+      "batchLoss": 0.6639962057236866,
+      "batchAccuracy": 0.7586206896551724
+    },
+    {
+      "step": 286,
+      "batchLoss": 0.5968737483511244,
+      "batchAccuracy": 0.8709677419354839
+    },
+    {
+      "step": 287,
+      "batchLoss": 0.6683990483723112,
+      "batchAccuracy": 0.7419354838709677
+    },
+    {
+      "step": 288,
+      "batchLoss": 0.6499113653688642,
+      "batchAccuracy": 0.7857142857142857
+    },
+    {
+      "step": 289,
+      "batchLoss": 0.5578849368727723,
+      "batchAccuracy": 0.7857142857142857
+    },
+    {
+      "step": 290,
+      "batchLoss": 0.6621305310045223,
+      "batchAccuracy": 0.75
+    },
+    {
+      "step": 291,
+      "batchLoss": 0.4570629836149882,
+      "batchAccuracy": 0.8928571428571429
+    },
+    {
+      "step": 292,
+      "batchLoss": 0.5101694062728096,
+      "batchAccuracy": 0.8275862068965517
+    },
+    {
+      "step": 293,
+      "batchLoss": 0.760955617071932,
+      "batchAccuracy": 0.6785714285714286
+    },
+    {
+      "step": 294,
+      "batchLoss": 0.7324710995986763,
+      "batchAccuracy": 0.6774193548387096
+    },
+    {
+      "step": 295,
+      "batchLoss": 0.7112805029655442,
+      "batchAccuracy": 0.7333333333333333
+    },
+    {
+      "step": 296,
+      "batchLoss": 0.6182811308220784,
+      "batchAccuracy": 0.8275862068965517
+    },
+    {
+      "step": 297,
+      "batchLoss": 0.5800946691084782,
+      "batchAccuracy": 0.7931034482758621
+    },
+    {
+      "step": 298,
+      "batchLoss": 0.686612801776802,
+      "batchAccuracy": 0.7
+    },
+    {
+      "step": 299,
+      "batchLoss": 0.6593523324412486,
+      "batchAccuracy": 0.7333333333333333
+    },
+    {
+      "step": 300,
+      "batchLoss": 0.6094325723537786,
+      "batchAccuracy": 0.7741935483870968
+    }
+  ],
+  "notes": [
+    "Timing covers 300 actual CPU forward/backward/SGD updates, excluding evaluations and serialization.",
+    "All new micro-family inference includes the same BOS marker used during training.",
+    "GPT uses real top-k routing, expert gradients, learned sinks, alternating sliding/full attention and clipped SwiGLU.",
+    "Llama/Gemma share embedding and output-head weights; their embedding receives gradients through both paths.",
+    "Long-context RoPE frequency scaling is omitted in these 64-token teaching models; ordinary full RoPE is used.",
+    "Tiny GPT reference computes all candidate experts then combines top-k; this reproduces sparse routing numerics but not a production sparse-kernel speedup.",
+    "Checkpoint retains exact round-trippable Float64 numbers and RNG state."
+  ]
+}

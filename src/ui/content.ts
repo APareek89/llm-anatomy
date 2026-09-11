@@ -6,6 +6,10 @@ export const components:Record<string,{label:string;color:string}>={
   ffn:{label:'Feed-forward',color:'#c9b48a'},delta:{label:'DeltaNet',color:'#67d7bd'},attention:{label:'Full attention',color:'#ae9df2'},embedding:{label:'Embedding',color:'#78b9e0'},lm_head:{label:'Language head',color:'#78b9e0'},vision:{label:'Vision encoder',color:'#8c9cad'},mtp:{label:'Multi-token head',color:'#b8a3ca'},norm:{label:'Normalization',color:'#8994a3'},norms:{label:'Normalization',color:'#8994a3'}
 };
 export function cellMeaning(t:TensorMeta,row:number,col:number):string {
+  if(t.name.includes('embed_tokens')&&t.tiedEmbedding)return `Token ${row}, hidden feature ${col}: used for embedding lookup${(t.embeddingScale??1)!==1?` with input scale √hidden = ${t.embeddingScale!.toFixed(4)}`:''}, and reused in the output projection to score token ${row}. Gradients accumulate from both paths.`;
+  if(t.name.endsWith('.sinks'))return `Learned attention sink logit for query head ${row}. It adds probability mass to the softmax denominator without reading a value.`;
+  if(t.name.includes('router')&&t.name.endsWith('.weight'))return `Multiplies input feature ${col} to contribute to the routing score for expert ${row}.`;
+  if(t.name.endsWith('.bias'))return `Learned additive offset for output coordinate ${row}. It does not multiply an input column.`;
   if(t.name.includes('embed_tokens'))return `Token ID ${row}, embedding coordinate ${col}. A lookup reads this feature directly; it is not a matrix multiply.`;
   if(t.name.includes('lm_head'))return `Multiplies hidden feature ${col} to contribute to the score for vocabulary token ${row}.`;
   if(t.name.includes('conv1d')){const kernel=t.shape.at(-1)!;return `Depthwise convolution channel ${row}, kernel position ${col}. Weights this same feature ${kernel-1-col} token positions in the past.`;}
@@ -43,6 +47,12 @@ export function describeTensor(t:TensorMeta) {
   return {title,what,why,math,analogy};
 }
 export const glossary:[string,string][]=[
+ ['Mixture of experts','A feed-forward layer containing several separate expert networks. A learned router selects only a few experts per token and combines their outputs.'],
+ ['Router','A learned projection that scores experts for each token. Top-k routing sends a token to its highest-scoring experts.'],
+ ['Sliding-window attention','Attention restricted to the current token and a limited number of earlier positions. Global attention layers can reconnect more distant parts of the sequence.'],
+ ['Attention sink','A learned no-value option in the softmax denominator. A head can allocate probability to it instead of reading tokens.'],
+ ['GELU','A smooth nonlinear activation used in Gemma’s feed-forward gates. Its shape differs from the SiLU gates in Llama and Qwen.'],
+ ['Tied embeddings','The same learned matrix is used both for token lookup and to score the next token. Gradients from both uses accumulate into the shared weights.'],
  ['Parameter','A learned number, such as a connection weight. Training changes it; ordinary inference does not.'],
  ['Token','A piece of text represented by an ID. Real Qwen uses subword pieces; Micro-Qwen uses whole words.'],
  ['Embedding','A learned vector read from the row for a token ID. Its coordinates describe features useful for prediction.'],

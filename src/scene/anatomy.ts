@@ -6,6 +6,8 @@ import { axesMeaning, cellMeaning } from '../ui/content';
 export interface Selection { kind:'model'|'layer'|'tensor'|'cell'; layer?:number; tensor?:string; row?:number; col?:number }
 interface Callbacks { onSelect:(selection:Selection)=>void; onStats?:(stats:{fps:number;renderer:string;lod:number;instances:number})=>void; onTileRequest?:(name:string,row:number,col:number)=>Promise<void> }
 interface StepLike { name?:string; layer?:number; phase?:string; parameter?:string; matrix?:{shape:number[];values:number[];mask?:boolean[]}; inputs?:{name:string;shape:number[];values:number[]}[]; outputs?:{name:string;shape:number[];values:number[]}[] }
+export type MicroFamily='qwen'|'gpt-oss'|'llama'|'gemma';
+export interface MicroSceneConfig { layers:number;hidden:number;queryHeads:number;kvHeads:number;headDim:number;localWindow?:number;experts?:number;expertsPerToken?:number;deltaKeyHeads?:number;deltaValueHeads?:number;deltaKeyDim?:number;deltaValueDim?:number; }
 type HitMesh = THREE.Mesh | THREE.InstancedMesh;
 const C={delta:0x54dccb,attention:0xa493ff,ffn:0x898174,norm:0x7e929d,embedding:0x739dbc,vision:0x577e72,mtp:0xa58ac5,head:0xb4a487};
 const v=(x:number,y:number,z:number)=>new THREE.Vector3(x,y,z);
@@ -28,6 +30,9 @@ export class AnatomyScene {
   private pointer=new THREE.Vector2();
   private selection:Selection={kind:'model'};
   private micro=false;
+  private microFamily:MicroFamily='qwen';
+  private microConfig:MicroSceneConfig={layers:8,hidden:64,queryHeads:6,kvHeads:1,headDim:16,localWindow:4,experts:4,expertsPerToken:2};
+  private familyDirty=false;
   private microParameters:{name:string;shape:number[]}[]=[];
   private microLayers=8;
   private frame=0;
@@ -41,6 +46,8 @@ export class AnatomyScene {
   private dragStart={x:0,y:0};
   private hovered?:HitMesh;
   private layerCenters=new Map<number,THREE.Vector3>();
+  private expertMeshes=new Map<string,THREE.Mesh[]>();
+  private lastRouting?:{layer:number;weights:number[]};
   private activeMarker=new THREE.Group();
   private followStep?:StepLike;
   private autoFollow=true;
@@ -90,7 +97,7 @@ export class AnatomyScene {
     this.renderer.outputColorSpace=THREE.SRGBColorSpace;
     this.renderer.toneMapping=THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure=.95;
-    this.renderer.domElement.setAttribute('aria-label','Interactive three-dimensional Qwen model. Drag to orbit, scroll to zoom, click a layer, double-click a tensor, Escape to return.');
+    this.renderer.domElement.setAttribute('aria-label','Interactive three-dimensional language-model architecture. Drag to orbit, scroll to zoom, click a layer, double-click a tensor, Escape to return.');
     this.renderer.domElement.style.cssText='display:block;width:100%;height:100%;touch-action:none;outline:none';
     container.appendChild(this.renderer.domElement);
     this.scene.fog=new THREE.FogExp2(0x070d13,.014);
@@ -141,20 +148,24 @@ export class AnatomyScene {
   private clear(group:THREE.Group){
     while(group.children.length){const object=group.children[0];group.remove(object);object.traverse(child=>{const item=child as THREE.Mesh;item.geometry?.dispose();const materials=item.material?(Array.isArray(item.material)?item.material:[item.material]):[];materials.forEach(material=>{(material as THREE.MeshBasicMaterial).map?.dispose();material.dispose();});});}
   }
-  private resetContent(){this.clear(this.content);this.clear(this.overlay);this.clear(this.tileGroup);this.clear(this.previousTileGroup);this.clear(this.cellLabels);this.clear(this.loadingGroup);this.clear(this.highlightGroup);this.clear(this.flowGroup);this.highlightKey='';this.interactives=[];this.hovered=undefined;this.hoveredCell=undefined;this.hoverElement.style.display='none';this.cellMesh=undefined;this.tilePlane=undefined;this.numericPlane=undefined;this.cellRangeKey='';this.layerCenters.clear();this.tensorMeta=undefined;this.tensorTile=undefined;this.tileSizeOverride=undefined;this.streamPending=undefined;this.streamFailed.clear();this.streamArmed=false;this.activeMarker.visible=false;this.decor.visible=true;}
+  private resetContent(){this.clear(this.content);this.clear(this.overlay);this.clear(this.tileGroup);this.clear(this.previousTileGroup);this.clear(this.cellLabels);this.clear(this.loadingGroup);this.clear(this.highlightGroup);this.clear(this.flowGroup);this.highlightKey='';this.interactives=[];this.hovered=undefined;this.hoveredCell=undefined;this.hoverElement.style.display='none';this.cellMesh=undefined;this.tilePlane=undefined;this.numericPlane=undefined;this.cellRangeKey='';this.layerCenters.clear();this.expertMeshes.clear();this.lastRouting=undefined;this.tensorMeta=undefined;this.tensorTile=undefined;this.tileSizeOverride=undefined;this.streamPending=undefined;this.streamFailed.clear();this.streamArmed=false;this.activeMarker.visible=false;this.decor.visible=true;}
   private enter(s:Selection,push=true){if(push&&JSON.stringify(s)!==JSON.stringify(this.selection))this.history.push({...this.selection});this.selection={...s};this.callbacks.onSelect({...s});}
   private fly(position:THREE.Vector3,target:THREE.Vector3,duration=950){this.streamArmed=false;this.tween={start:performance.now(),duration,from:this.camera.position.clone(),to:position,targetFrom:this.controls.target.clone(),targetTo:target};}
   private layerData(){
     if(!this.micro)return this.manifest.layers;
-    return Array.from({length:this.microLayers},(_,index)=>{const params=this.microParameters.filter(p=>p.name.startsWith(`layers.${index}.`));return {index,kind:index%4===3?'full_attention':'linear_attention',names:params.map(p=>p.name),params:params.reduce((n,p)=>n+p.shape.reduce((a,b)=>a*b,1),0)||1,bytes:0};});
+    return Array.from({length:this.microLayers},(_,index)=>{const params=this.microParameters.filter(p=>p.name.startsWith(`layers.${index}.`));return {index,kind:this.microLayerKind(index),names:params.map(p=>p.name),params:params.reduce((n,p)=>n+p.shape.reduce((a,b)=>a*b,1),0)||1,bytes:0};});
   }
+  private microLayerKind(index:number){return this.microFamily==='qwen'?(index%4===3?'full_attention':'linear_attention'):this.microFamily==='gpt-oss'?(index%2===0?'sliding_attention':'full_attention'):this.microFamily==='gemma'?(index%6===5?'full_attention':'sliding_attention'):'full_attention';}
+  private familyName(){return {qwen:'Micro-Qwen','gpt-oss':'Micro-GPT-OSS',llama:'Micro-Llama',gemma:'Micro-Gemma'}[this.microFamily];}
+  private headConfig(meta?:TensorMeta){const heads=this.micro?this.microConfig.queryHeads:this.manifest.config.text_config.num_attention_heads,kvHeads=this.micro?this.microConfig.kvHeads:this.manifest.config.text_config.num_key_value_heads,dim=this.micro?this.microConfig.headDim:this.manifest.config.text_config.head_dim;return {heads,kvHeads,dim,gated:meta?meta.shape[0]===heads*dim*2:!this.micro||this.microFamily==='qwen'};}
   private meta(name:string):TensorMeta|undefined{
     if(!this.micro)return this.manifest.tensors[name];
     const p=this.microParameters.find(x=>x.name===name);if(!p)return;const params=p.shape.reduce((a,b)=>a*b,1),layer=/layers\.(\d+)/.exec(name);
-    return {name,shape:p.shape,dtype:'Float64 [micro]',shard:'micro-worker',dataOffsets:[0,0],absoluteOffsets:[0,0],params,bytes:params*8,component:name.includes('linear_attn')?'deltaNet':name.includes('self_attn')?'attention':name.includes('mlp')?'ffn':'norms',layer:layer?Number(layer[1]):undefined};
+    return {name,shape:p.shape,dtype:'Float64 [micro]',shard:'micro-worker',dataOffsets:[0,0],absoluteOffsets:[0,0],params,bytes:params*8,component:name.includes('linear_attn')?'deltaNet':name.includes('self_attn')?'attention':name.includes('mlp')?'ffn':'norms',layer:layer?Number(layer[1]):undefined,...(name.includes('embed_tokens')?{tiedEmbedding:this.microFamily==='llama'||this.microFamily==='gemma',embeddingScale:this.microFamily==='gemma'?Math.sqrt(this.microConfig.hidden):1}:{})};
   }
 
   showModel(){
+    if(this.micro&&this.microFamily!=='qwen'){this.showFamilyModel();return;}
     this.resetContent();this.lod=0;this.enter({kind:'model'});const layers=this.layerData(),total=layers.reduce((n,l)=>n+l.params,0),gap=this.micro?.18:.062,totalBody=this.micro?6.8:6.1,base=.8;
     let y=base;const x=-1.1,width=5.4,depth=3.05;
     this.box(width+.35,.27,depth+.35,C.embedding,v(x,.48,0),{kind:'tensor',tensor:this.micro?'embed_tokens.weight':'model.language_model.embed_tokens.weight'});
@@ -185,33 +196,81 @@ export class AnatomyScene {
     const target=v(.1,this.micro?4.35:5.1,0);this.fly(v(this.micro?18.5:21.8,this.micro?13:15.3,this.micro?22.5:26),target);
   }
 
+  private showFamilyModel(){
+    this.resetContent();this.lod=0;this.enter({kind:'model'});
+    const layers=this.layerData(),family=this.microFamily,c=this.microConfig,total=layers.reduce((n,l)=>n+l.params,0),accent=family==='gpt-oss'?0x79cdb3:family==='llama'?0x94b9ed:0xe4b784,base=.85,step=7.0/layers.length;
+    const embedding=this.meta('embed_tokens.weight'),tied=!this.meta('lm_head.weight');
+    this.box(5.8,.24,3.05,C.embedding,v(-.5,.48,0),{kind:'tensor',tensor:'embed_tokens.weight'});
+    this.label('TOKEN EMBEDDINGS [micro]',v(-.7,.2,2.2),{color:'#9bbcd7',width:3.2,scale:.85});
+    for(const layer of layers){
+      const y=base+step*(layer.index+.5),h=Math.max(.28,layer.params/total*4.2),local=layer.kind==='sliding_attention',color=local?(family==='gemma'?0xc29263:0x589f94):(family==='llama'?0x829dc8:0xae9ee9),selection:Selection={kind:'layer',layer:layer.index};this.layerCenters.set(layer.index,v(-.8,y,0));
+      this.label(`${String(layer.index).padStart(2,'0')}`,v(-4.05,y,1.55),{color:local?'#c3b393':'#b7b7d3',width:.5,scale:.85});
+      if(family==='gpt-oss'){
+        const attention=this.box(1.8,h*.72,2.65,color,v(-2.55,y,0),selection,.86);
+        this.headBands(attention,1.8,h*.72,c.queryHeads,false);
+        this.label(local?`LOCAL · ${c.localWindow} TOKENS`:'GLOBAL ATTENTION',v(-2.55,y+h*.52,1.5),{color:local?'#7ab7aa':'#b7a2dd',width:2.3,scale:.63});
+        const router=this.box(.5,h*.63,.5,0xe4bd7b,v(-.72,y,0),{kind:'tensor',layer:layer.index,tensor:`layers.${layer.index}.mlp.router.weight`});router.rotation.z=Math.PI/4;
+        this.line([v(-1.64,y,0),v(-.72,y,0)],accent,.7);this.label('ROUTER',v(-.72,y+h*.62,.1),{color:'#d2b582',width:1.3,scale:.6});
+        const experts=c.experts??4;
+        for(let e=0;e<experts;e++){
+          const x=.65+(e%2)*1.42,z=(Math.floor(e/2)-(Math.ceil(experts/2)-1)/2)*1.55,mesh=this.box(1.13,h*.78,1.15,0x72b8a5,v(x,y,z),selection,.7);mesh.userData.expert=e;this.expertMeshes.set(`${layer.index}:${e}`,[mesh]);
+          this.line([v(-.47,y,0),v(x-.56,y,z)],0x84baaa,.35);this.label(`E${e}`,v(x,y+h*.48,z+.58),{color:'#a1d2c3',width:.65,scale:.68});
+        }
+      }else if(family==='llama'){
+        // Dense attention and feed-forward branches remain separate, joined at every residual level.
+        this.box(2.2,h*.8,2.55,color,v(-2.15,y,0),selection,.88);
+        const qLeft=-3.03,qSpan=1.75;
+        for(let head=0;head<c.queryHeads;head++){const hx=qLeft+(head+.5)*qSpan/c.queryHeads;this.box(qSpan/c.queryHeads*.54,h*.56,.12,0xb1c7ef,v(hx,y,1.36),selection,.82);this.line([v(hx,y-h*.4,1.38),v(-2.15+(Math.floor(head/(c.queryHeads/c.kvHeads))-(c.kvHeads-1)/2)*.3,y-h*.67,1.38)],0x9cafcc,.5);}
+        const matrices=['gate_proj','up_proj','down_proj'];
+        for(let m=0;m<matrices.length;m++){const meta=this.meta(`layers.${layer.index}.mlp.${matrices[m]}.weight`),scale=.03125;this.box((meta?.shape[1]??c.hidden)*scale,h*.6,.55,C.ffn,v(.35+m*.2,y,-.78+m*.76),selection,.85);}
+        this.line([v(-.98,y,0),v(1.75,y,0)],accent,.55);this.label('DENSE SwiGLU',v(.75,y+h*.5,1.55),{color:'#c4bea7',width:2.3,scale:.7});
+        this.label(`${c.queryHeads} Q → ${c.kvHeads} KV`,v(-2.15,y+h*.5,1.5),{color:'#bac9e2',width:1.95,scale:.7});
+      }else{
+        const width=local?4.8:6.4,depth=local?2.65:3.35,mixerParams=layer.names.filter(n=>n.includes('self_attn')).reduce((n,name)=>n+(this.meta(name)?.params??0),0),attentionWidth=width*mixerParams/layer.params;
+        this.box(attentionWidth,h*.73,depth,color,v(-.9-width/2+attentionWidth/2,y,0),selection,.9);this.box(width-attentionWidth-.07,h*.73,depth,C.ffn,v(-.9+attentionWidth/2+.035,y,0),selection,.86);
+        const norms=layer.names.filter(n=>n.includes('layernorm.weight'));
+        norms.forEach((name,i)=>this.box(.09,h*1.08,.1,0xd9c199,v(-.9-width/2+(i+.5)*width/norms.length,y,depth/2+.11),{kind:'tensor',layer:layer.index,tensor:name},.9));
+        this.label(local?`LOCAL WINDOW · ${c.localWindow} TOKENS`:'GLOBAL ATTENTION · WHOLE CONTEXT',v(-.9,y+h*.62,depth/2+.02),{color:local?'#c7ae85':'#c8b8ee',width:local?3.5:5.4,scale:.72});
+        if(!local){const points=Array.from({length:65},(_,i)=>v(-.9+Math.cos(i/64*Math.PI*2)*3.55,y,Math.sin(i/64*Math.PI*2)*1.95));this.line(points,0xcbb8f1,.65);}
+      }
+      if(layer.index<layers.length-1)this.line([v(-3.75,y,0),v(-3.75,y+step,0)],accent,.43);
+    }
+    const top=base+step*layers.length+.2;this.box(5.65,.1,2.8,C.norm,v(-.6,top,0),{kind:'tensor',tensor:'norm.weight'});this.box(5.8,.27,3.05,C.head,v(-.6,top+.32,0),{kind:'tensor',tensor:tied?'embed_tokens.weight':'lm_head.weight'});
+    this.label(tied?'SHARED EMBEDDING → LANGUAGE HEAD':'LANGUAGE MODEL HEAD [micro]',v(-.6,top+.8,.2),{color:'#d5c8ae',width:5.1,scale:.95});
+    const subtitle=family==='gpt-oss'?`${c.experts} experts · top ${c.expertsPerToken} routed per token`:family==='llama'?`Dense GQA · ${c.queryHeads} query heads / ${c.kvHeads} KV`:'Five local layers → one global layer';
+    this.label(`${this.familyName().toUpperCase()} · ${layers.length} LAYERS`,v(-.7,-.13,3),{color:'#d2dfdf',width:5.2});this.label(`${subtitle} · [micro]`,v(-.7,-.45,3),{color:'#6f8f99',width:5.3,scale:.86});
+    if(embedding)this.label(`${count(this.microParameters.reduce((n,p)=>n+p.shape.reduce((a,b)=>a*b,1),0))} learned parameters · actual worker structure`,v(-.7,-.77,3),{color:'#4b6875',width:5.6,scale:.76});
+    this.fly(v(18.5,13,22.5),v(.1,4.35,0));
+  }
+
   showLayer(index:number){
     const layer=this.layerData().find(x=>x.index===index);if(!layer)return;
+    if(this.micro&&this.microFamily==='gpt-oss'){this.showExpertLayer(index);return;}
     this.resetContent();this.lod=1;this.enter({kind:'layer',layer:index});this.decor.visible=false;
-    const full=layer.kind==='full_attention',mixerColor=full?C.attention:C.delta,groups=[{key:'norm',names:layer.names.filter(n=>n.includes('layernorm')),x:-5.05,title:'NORMALIZE'},{key:'mixer',names:layer.names.filter(n=>n.includes(full?'self_attn':'linear_attn')),x:-.8,title:full?'GATED ATTENTION':'GATED DELTANET'},{key:'ffn',names:layer.names.filter(n=>n.includes('.mlp.')),x:4.9,title:'FEED-FORWARD'}];
+    const full=layer.kind!=='linear_attention',local=layer.kind==='sliding_attention',head=this.headConfig(),attentionTitle=local?'LOCAL ATTENTION':head.gated?'GATED ATTENTION':'GLOBAL ATTENTION',mixerColor=local?0xc49a6a:full?C.attention:C.delta,groups=[{key:'norm',names:layer.names.filter(n=>n.includes('layernorm')),x:-5.05,title:this.micro&&this.microFamily==='gemma'?'PRE / POST NORMS':'NORMALIZE'},{key:'mixer',names:layer.names.filter(n=>n.includes(full?'self_attn':'linear_attn')),x:-.8,title:full?attentionTitle:'GATED DELTANET'},{key:'ffn',names:layer.names.filter(n=>n.includes('.mlp.')),x:4.9,title:'FEED-FORWARD'}];
     const maximumDimension=Math.max(1,...layer.names.flatMap(name=>{const meta=this.meta(name);return meta&&meta.shape.length>=2?[meta.shape[0],meta.shape.slice(1).reduce((a,b)=>a*b,1)]:[];})),matrixScale=2.7/maximumDimension;
-    this.label(`LAYER ${String(index).padStart(2,'0')} · ${full?'GATED ATTENTION':'GATED DELTANET'}`,v(0,8.25,0),{color:full?'#bfafff':'#8ae8d9',width:8,scale:1.2});
+    this.label(`LAYER ${String(index).padStart(2,'0')} · ${full?attentionTitle:'GATED DELTANET'}`,v(0,8.25,0),{color:local?'#dfbf8f':full?'#bfafff':'#8ae8d9',width:8,scale:1.2});
     this.label(`${count(layer.params)} parameters · ${this.micro?'[micro]':'[config]'} · every block is a named tensor`,v(0,7.7,0),{color:'#73929f',width:8,scale:.9});
     for(const group of groups){
       this.label(group.title,v(group.x,6.9,0),{color:group.key==='ffn'?'#c9b78f':group.key==='mixer'?(full?'#b5a2f0':'#68cdbc'):'#8ca5b1',width:3.2,scale:.9});
-      const cols=group.key==='norm'?1:3;
+      const cols=group.key==='norm'?(group.names.length>2?2:1):3;
       for(let i=0;i<group.names.length;i++){
         const meta=this.meta(group.names[i]);if(!meta)continue;
-        const col=i%cols,row=Math.floor(i/cols),px=group.x+(col-(cols-1)/2)*(group.key==='ffn'?2.1:1.62),py=(group.key==='ffn'?4.55:5.8)-row*1.38,inDim=meta.shape.slice(1).reduce((a,b)=>a*b,1),outDim=meta.shape[0];
+        const col=i%cols,row=Math.floor(i/cols),px=group.x+(col-(cols-1)/2)*(group.key==='ffn'?2.1:group.key==='norm'?1.4:1.62),py=(group.key==='ffn'?4.55:5.8)-row*1.38,inDim=meta.shape.slice(1).reduce((a,b)=>a*b,1),outDim=meta.shape[0];
         const vector=meta.shape.length===1,w=vector?.12:inDim*matrixScale,h=vector?Math.max(.08,outDim*matrixScale):outDim*matrixScale,d=vector?.1:.24;
         const mesh=this.box(w,h,d,colorFor(meta.name),v(px,py,.12),{kind:'tensor',layer:index,tensor:meta.name});mesh.userData.tensor=meta.name;
-        this.label(leaf(meta.name),v(px,py-h/2-.23,.38),{color:'#a5bbc4',width:group.key==='ffn'?2.8:2.2,scale:.7});
+        this.label(group.key==='norm'&&cols>1?meta.name.split('.').at(-2)!.replace('_layernorm',''):leaf(meta.name),v(px,py-h/2-.23,.38),{color:'#a5bbc4',width:group.key==='ffn'?2.8:group.key==='norm'&&cols>1?1.9:2.2,scale:.7});
         this.label(meta.shape.join(' × '),v(px,py-h/2-.48,.4),{color:'#586f7a',width:2.2,scale:.65});
-        if(full&&meta.name.includes('q_proj'))this.headBands(mesh,w,h,this.micro?6:this.manifest.config.text_config.num_attention_heads,true);
-        else if(full&&/[kv]_proj/.test(meta.name))this.headBands(mesh,w,h,this.micro?1:this.manifest.config.text_config.num_key_value_heads,false);
+        if(full&&meta.name.includes('q_proj')&&meta.shape.length>=2)this.headBands(mesh,w,h,head.heads,this.headConfig(meta).gated);
+        else if(full&&/[kv]_proj/.test(meta.name)&&meta.shape.length>=2)this.headBands(mesh,w,h,head.kvHeads,false);
       }
       this.line([v(group.x-1.6,.76,-.1),v(group.x+1.6,.76,-.1)],group.key==='mixer'?mixerColor:C.ffn,.25);
     }
     this.arrow(v(-4.25,3.0,.55),v(-3.15,3.0,.55),C.norm);this.arrow(v(1.5,2.35,.55),v(3.15,2.35,.55),mixerColor);
     this.line([v(-5.45,1.2,.3),v(-5.45,.38,.3),v(6.5,.38,.3),v(6.5,1.2,.3)],0x7897a4,.6);this.label('RESIDUAL STREAM  →  preserve input + add learned changes',v(.45,.03,.4),{color:'#76929f',width:8,scale:.86});
-    this.label(full?'6 query heads share each key / value head':'State memory is an activation, not a learned weight',v(-.9,1.15,.3),{color:full?'#8f80c0':'#5b9f94',width:5.5,scale:.85});
+    this.label(full?`${head.heads/head.kvHeads} query heads share each key / value head${local?` · window ${this.microConfig.localWindow}`:''}`:'State memory is an activation, not a learned weight',v(-.9,1.15,.3),{color:full?'#8f80c0':'#5b9f94',width:5.5,scale:.85});
     if(full){
-      const qHeads=this.micro?6:this.manifest.config.text_config.num_attention_heads,kvHeads=this.micro?1:this.manifest.config.text_config.num_key_value_heads,span=3.05,left=-6.15;
+      const qHeads=head.heads,kvHeads=head.kvHeads,span=3.05,left=-6.15;
       for(let h=0;h<qHeads;h++){const x=left+(h+.5)*span/qHeads,kv=Math.floor(h/(qHeads/kvHeads)),kx=left+(kv+.5)*span/kvHeads;this.line([v(x,2.2,.4),v(kx,1.48,.4)],C.attention,.34);const node=new THREE.Mesh(new THREE.SphereGeometry(.034,8,6),new THREE.MeshBasicMaterial({color:0xcdbdff}));node.position.set(x,2.2,.4);this.content.add(node);}
       for(let h=0;h<kvHeads;h++){const x=left+(h+.5)*span/kvHeads,node=new THREE.Mesh(new THREE.SphereGeometry(.073,10,8),new THREE.MeshBasicMaterial({color:C.attention}));node.position.set(x,1.48,.4);this.content.add(node);}
       this.label(`${qHeads} Q HEADS → ${kvHeads} SHARED KV HEADS`,v(-4.63,1.0,.4),{color:'#8679af',width:3.8,scale:.75});
@@ -221,6 +280,41 @@ export class AnatomyScene {
     }
     this.fly(v(2.0,10.5,27.5),v(.75,4.05,0));
   }
+  private showExpertLayer(index:number){
+    const layer=this.layerData().find(x=>x.index===index);if(!layer)return;this.resetContent();this.lod=1;this.enter({kind:'layer',layer:index});this.decor.visible=false;
+    const c=this.microConfig,local=layer.kind==='sliding_attention',maximum=Math.max(1,...layer.names.flatMap(name=>{const m=this.meta(name);return m?.shape.length===2?m.shape:[];})),scale=1.0/maximum;
+    this.label(`LAYER ${index} · ${local?'LOCAL':'GLOBAL'} ATTENTION + MIXTURE OF EXPERTS`,v(0,8.4,0),{color:'#c7e3d4',width:10.4,scale:1.14});
+    this.label(`${count(layer.params)} parameters · ${c.expertsPerToken} of ${c.experts} experts per token · [micro]`,v(0,7.87,0),{color:'#829b99',width:8.4,scale:.9});
+    this.label(`${local?`LOCAL WINDOW ${c.localWindow}`:'GLOBAL CONTEXT'} · ${c.queryHeads}:${c.kvHeads} GQA`,v(-4.6,7.0,0),{color:'#a6b3d3',width:4.2,scale:.85});
+    const projections=layer.names.filter(n=>n.includes('self_attn')&&n.endsWith('.weight'));
+    for(let i=0;i<projections.length;i++){
+      const meta=this.meta(projections[i])!,x=-5.75+(i%2)*1.82,y=5.8-Math.floor(i/2)*2.12,w=meta.shape[1]*scale,h=meta.shape[0]*scale,mesh=this.box(w,h,.16,C.attention,v(x,y,.1),{kind:'tensor',layer:index,tensor:meta.name});
+      this.label(leaf(meta.name),v(x,y-h/2-.22,.25),{color:'#b9b8d1',width:1.9,scale:.72});this.label(meta.shape.join(' × '),v(x,y-h/2-.46,.25),{color:'#768696',width:1.7,scale:.64});
+      if(meta.name.includes('q_proj'))this.headBands(mesh,w,h,c.queryHeads,false);else if(/[kv]_proj/.test(meta.name))this.headBands(mesh,w,h,c.kvHeads,false);
+      const bias=this.meta(meta.name.replace('.weight','.bias'));if(bias){this.box(.06,h,.1,0xa08eaf,v(x+w/2+.16,y,.13),{kind:'tensor',layer:index,tensor:bias.name});this.label('bias',v(x+w/2+.16,y-h/2-.13,.2),{color:'#746a84',width:.65,scale:.55});}
+    }
+    const sinks=this.meta(`layers.${index}.self_attn.sinks`);if(sinks){this.box(1.65,.14,.13,0x9786ba,v(-4.8,1.66,.12),{kind:'tensor',layer:index,tensor:sinks.name});this.label(`${sinks.shape[0]} LEARNED ATTENTION SINKS`,v(-4.8,1.22,.2),{color:'#a999c6',width:3.5,scale:.75});}
+    const router=this.meta(`layers.${index}.mlp.router.weight`);
+    this.box(1.5,.9,.14,0xbc9a62,v(-1.36,4.7,0),undefined,.13);
+    if(router){this.box(router.shape[1]*scale,router.shape[0]*scale,.18,0xd5b780,v(-1.36,4.7,.13),{kind:'tensor',layer:index,tensor:router.name});this.label(`${router.shape.join(' × ')} · router.weight`,v(-1.36,4.0,.2),{color:'#bca980',width:2.4,scale:.66});}
+    this.label(`TOP ${c.expertsPerToken} ROUTER`,v(-1.36,5.65,.1),{color:'#e3c590',width:2.45,scale:.88});this.label('Token-dependent routing',v(-1.36,5.24,.1),{color:'#8e8269',width:2.7,scale:.68});
+    const rb=this.meta(`layers.${index}.mlp.router.bias`);if(rb)this.box(.06,rb.shape[0]*scale,.1,0xb49768,v(-.74,4.7,.15),{kind:'tensor',layer:index,tensor:rb.name});
+    this.arrow(v(-3.1,4.7,.25),v(-2.23,4.7,.25),0x9ea1c6);
+    for(let e=0;e<(c.experts??4);e++){
+      const x=1.55+(e%2)*3.13,y=5.62-Math.floor(e/2)*2.84,meshes:THREE.Mesh[]=[],panel=this.box(2.66,2.21,.15,0x608a7c,v(x,y,-.15),undefined,.11);meshes.push(panel);
+      this.label(`EXPERT ${e}`,v(x,y+1.27,0),{color:'#abd0bc',width:2.5,scale:.88});
+      for(const [m,part] of ['gate_proj','up_proj','down_proj'].entries()){
+        const meta=this.meta(`layers.${index}.mlp.experts.${e}.${part}.weight`);if(!meta)continue;const px=x+(m-1)*.79,w=meta.shape[1]*scale,h=meta.shape[0]*scale,mesh=this.box(w,h,.16,0x6ea38c,v(px,y+.14,.08),{kind:'tensor',layer:index,tensor:meta.name},.75);meshes.push(mesh);
+        this.label(part.replace('_proj',''),v(px,y-.76,.2),{color:'#a1b4a7',width:1.0,scale:.62});
+        const bias=this.meta(meta.name.replace('.weight','.bias'));if(bias){const bm=this.box(.035,h,.09,0x7e9477,v(px+w/2+.06,y+.14,.12),{kind:'tensor',layer:index,tensor:bias.name},.8);meshes.push(bm);}
+      }
+      this.expertMeshes.set(`${index}:${e}`,meshes);this.line([v(-.61,4.7,.15),v(x-1.4,y,.15)],0x91ae98,.35);
+    }
+    const norms=layer.names.filter(n=>n.includes('layernorm.weight'));norms.forEach((name,i)=>{const m=this.meta(name)!;this.box(.06,m.shape[0]*scale,.1,C.norm,v(-1.95+i*1.5,2.35,.15),{kind:'tensor',layer:index,tensor:name});this.label(i?'POST-ATTENTION NORM':'INPUT NORM',v(-1.95+i*1.5,1.72,.2),{color:'#7f959e',width:1.8,scale:.59});});
+    this.label('All experts are learned tensors. Playback highlights only the experts selected by actual router values.',v(0,.54,.3),{color:'#749589',width:11.2,scale:.81});
+    this.fly(v(2,10.5,30),v(.1,4.1,0));
+  }
+
   private headBands(mesh:THREE.Mesh,width:number,height:number,heads:number,queryGate:boolean){
     for(let h=1;h<heads;h++){const y=-height/2+h*height/heads;const line=new THREE.Line(new THREE.BufferGeometry().setFromPoints([v(-width/2,y,.126),v(width/2,y,.126)]),new THREE.LineBasicMaterial({color:0xddd2ff,transparent:true,opacity:.65}));mesh.add(line);}
     if(queryGate)for(let h=0;h<heads;h++){const band=new THREE.Mesh(new THREE.PlaneGeometry(width,height/heads/2),new THREE.MeshBasicMaterial({color:0x291d48,transparent:true,opacity:.33,side:THREE.DoubleSide}));band.position.set(0,-height/2+(h+.25)*height/heads,.125);mesh.add(band);}
@@ -262,7 +356,7 @@ export class AnatomyScene {
     const vector=meta.shape.length===1,columnMeaning=meta.name.includes('embed_tokens')?'EMBEDDING COORDINATES':meta.name.includes('conv1d')?'KERNEL POSITIONS':'INPUT FEATURES';
     this.label(vector?'PARAMETER VECTOR · NO INPUT-COLUMN AXIS':`${columnMeaning}  ${startCol} → ${startCol+cols-1}`,v(0,this.tileOrigin.y-height/2-.34,0),{color:'#87a8b4',width:5.4,scale:.85});
     let rowMeaning='OUTPUT FEATURES';
-    if(meta.name.includes('embed'))rowMeaning='TOKEN IDs';else if(meta.name.includes('lm_head'))rowMeaning='VOCABULARY LOGITS';else if(meta.name.includes('conv1d'))rowMeaning='FEATURE CHANNELS';else if(vector)rowMeaning=meta.name.includes('A_log')||meta.name.includes('dt_bias')?'DELTANET VALUE HEADS':'FEATURE COORDINATES';else if(meta.name.includes('q_proj')){const dim=this.micro?16:this.manifest.config.text_config.head_dim,head=Math.floor(startRow/(2*dim)),offset=startRow%(2*dim);rowMeaning=`HEAD ${head} · ${offset>=dim?'GATE':'QUERY'} DIMENSIONS`;}else if(/[kv]_proj/.test(meta.name)){const dim=this.micro?16:this.manifest.config.text_config.head_dim;rowMeaning=`KV HEAD ${Math.floor(startRow/dim)} DIMENSIONS`;}
+    if(meta.name.includes('embed'))rowMeaning='TOKEN IDs';else if(meta.name.includes('lm_head'))rowMeaning='VOCABULARY LOGITS';else if(meta.name.includes('conv1d'))rowMeaning='FEATURE CHANNELS';else if(meta.name.includes('.router.'))rowMeaning='EXPERT ROUTING SCORES';else if(meta.name.endsWith('.sinks'))rowMeaning='ATTENTION HEAD SINKS';else if(vector)rowMeaning=meta.name.includes('A_log')||meta.name.includes('dt_bias')?'DELTANET VALUE HEADS':'FEATURE COORDINATES';else if(meta.name.includes('q_proj')){const {dim,gated}=this.headConfig(meta),band=dim*(gated?2:1),head=Math.floor(startRow/band),offset=startRow%band;rowMeaning=`HEAD ${head} · ${gated&&offset>=dim?'GATE':'QUERY'} DIMENSIONS`;}else if(/[kv]_proj/.test(meta.name)){const {dim}=this.headConfig();rowMeaning=`KV HEAD ${Math.floor(startRow/dim)} DIMENSIONS`;}
     this.label(`${rowMeaning}  ${startRow} → ${startRow+rows-1}`,v(0,this.tileOrigin.y-height/2-.67,0),{color:'#70939e',width:7,scale:.78});
     for(const f of [0,.25,.5,.75,1]){
       const row=Math.min(rows-1,Math.floor(f*rows)),col=Math.min(cols-1,Math.floor(f*cols));
@@ -290,13 +384,13 @@ export class AnatomyScene {
     this.label(`${(-limit).toPrecision(3)}     0     ${limit.toPrecision(3)}`,v(0,-.47,0),{color:'#88a7b0',width:3.2,scale:.74});
   }
   private tensorHeadRuler(meta:TensorMeta,tile?:WeightTile){
-    const isQ=meta.name.includes('q_proj'),dim=this.micro?16:this.manifest.config.text_config.head_dim,heads=this.micro?(isQ?6:1):(isQ?this.manifest.config.text_config.num_attention_heads:this.manifest.config.text_config.num_key_value_heads),band=dim*(isQ?2:1),height=6.6,w=.23,x=this.tileDimensions.width/2+.76;
+    const isQ=meta.name.includes('q_proj'),config=this.headConfig(meta),dim=config.dim,heads=isQ?config.heads:config.kvHeads,gated=isQ&&config.gated,band=dim*(gated?2:1),height=6.6,w=.23,x=this.tileDimensions.width/2+.76;
     for(let h=0;h<heads;h++){const y=3.8+height/2-(h+.5)*height/heads,active=tile&&tile.row<((h+1)*band)&&tile.row+tile.rows>h*band;
       const mesh=this.box(w,height/heads*.94,.025,active?0xd4b8ff:0x5d537f,v(x,y,.02),{kind:'tensor',layer:meta.layer,tensor:meta.name,row:h*band,col:tile?.col??0},active?1:.5);mesh.userData.head=h;
-      if(isQ){const gate=new THREE.Mesh(new THREE.PlaneGeometry(w*.45,height/heads*.94),new THREE.MeshBasicMaterial({color:0x30223e}));gate.position.set(w*.25,0,.014);mesh.add(gate);}
+      if(gated){const gate=new THREE.Mesh(new THREE.PlaneGeometry(w*.45,height/heads*.94),new THREE.MeshBasicMaterial({color:0x30223e}));gate.position.set(w*.25,0,.014);mesh.add(gate);}
       if(heads<=8||h%4===0||active)this.label(`${h}`,v(x+.38,y,.02),{color:active?'#d9c3ff':'#685e83',width:.5,scale:.72});
     }
-    this.label(isQ?'Q | gate':'KV',v(x,7.4,.02),{color:'#ac92d6',width:1.35,scale:.75});this.label('HEADS',v(x,7.13,.02),{color:'#695981',width:1.15,scale:.7});
+    this.label(isQ?(gated?'Q | gate':'QUERY'):'KV',v(x,7.4,.02),{color:'#ac92d6',width:1.35,scale:.75});this.label('HEADS',v(x,7.13,.02),{color:'#695981',width:1.15,scale:.7});
   }
   private updateCellDetail(now:number){
     const tile=this.tensorTile;if(!tile||!this.tensorMeta||!this.tilePlane)return;
@@ -351,15 +445,27 @@ export class AnatomyScene {
   }
   focus(selection:Selection){if(selection.kind==='model')this.showModel();else if(selection.kind==='layer'&&selection.layer!==undefined)this.showLayer(selection.layer);else if(selection.kind==='cell'&&this.tensorTile?.name===selection.tensor&&selection.row!==undefined&&selection.col!==undefined){this.focusCell(selection.row,selection.col);this.callbacks.onSelect(selection);}else if(selection.tensor){const meta=this.meta(selection.tensor);if(meta)this.showTensor(meta);}}
   back(){const previous=this.history.pop();if(!previous){if(this.selection.kind!=='model')this.showModel();return;}const remaining=[...this.history];this.focus(previous);this.history=remaining;}
-  setMicro(enabled:boolean,parameters?:{name:string;shape:number[]}[]){if(parameters)this.microParameters=parameters;const changed=this.micro!==enabled;this.micro=enabled;if(parameters){const indices=parameters.flatMap(p=>{const match=/layers\.(\d+)/.exec(p.name);return match?[Number(match[1])]:[];});if(indices.length)this.microLayers=Math.max(...indices)+1;}if(changed)this.showModel();}
+  setMicroFamily(family:MicroFamily,config:MicroSceneConfig){this.familyDirty=this.familyDirty||this.microFamily!==family||JSON.stringify(this.microConfig)!==JSON.stringify(config);this.microFamily=family;this.microConfig={...config};this.microLayers=config.layers;if(this.familyDirty){this.followStep=undefined;this.lastRouting=undefined;}}
+  setMicro(enabled:boolean,parameters?:{name:string;shape:number[]}[]){if(parameters)this.microParameters=parameters;const changed=this.micro!==enabled||this.familyDirty;this.micro=enabled;if(parameters){const indices=parameters.flatMap(p=>{const match=/layers\.(\d+)/.exec(p.name);return match?[Number(match[1])]:[];});if(indices.length)this.microLayers=Math.max(...indices)+1;}this.familyDirty=false;if(changed){this.history=[];this.selection={kind:'model'};this.showModel();}}
   setFollow(enabled:boolean){this.autoFollow=enabled;}
   setPlayback(playing:boolean,speed=.5){this.playing=playing;this.playbackSpeed=Math.max(.05,Math.min(5,speed));this.flowGroup.visible=playing&&this.micro;}
+  private highlightRouting(step:StepLike){
+    if(!this.micro||this.microFamily!=='gpt-oss')return;
+    const count=this.microConfig.experts??4;
+    if(step.name==='Top-k expert routing'&&step.matrix?.shape.at(-1)===count){const row=Math.max(0,(step.matrix.shape[0]??1)-1);this.lastRouting={layer:step.layer??0,weights:step.matrix.values.slice(row*count,(row+1)*count)};}
+    for(const [key,meshes] of this.expertMeshes){const [layer,expert]=key.split(':').map(Number),weight=this.lastRouting?.layer===layer&&step.layer===layer?this.lastRouting.weights[expert]:undefined;
+      for(const mesh of meshes){const material=mesh.material as THREE.MeshStandardMaterial;if(mesh.userData.baseOpacity===undefined)mesh.userData.baseOpacity=material.opacity;material.opacity=weight===undefined?mesh.userData.baseOpacity:weight>0?Math.max(.65,mesh.userData.baseOpacity):.2;material.emissiveIntensity=weight===undefined?.045:weight>0?.16+Math.min(1,weight)*.55:.012;material.transparent=material.opacity<1;}
+    }
+    if(this.lastRouting&&this.lastRouting.layer===step.layer&&this.expertMeshes.size){const active=this.lastRouting.weights.flatMap((weight,e)=>weight>0?[`E${e} ${(weight*100).toFixed(1)}%`]:[]),position=this.selection.kind==='model'?v(2.2,(this.layerCenters.get(step.layer??0)?.y??3)+1.05,1.75):v(3.15,.02,.3);this.label(`LAST TOKEN → ${active.join(' + ')} [micro]`,position,{color:'#b9dec7',width:4.9,scale:.72,parent:this.overlay});}
+  }
   setActiveStep(step:StepLike){
     const previousLayer=this.followStep?.layer;this.followStep=step;this.clear(this.activeMarker);this.clear(this.overlay);this.clear(this.flowGroup);
+    this.highlightRouting(step);
     const layer=step.layer??-1,pos=this.layerCenters.get(layer)??(this.selection.kind==='model'?(layer<0?v(-1.1,.48,0):v(-1.1,10,0)):undefined);
     if(pos){
-      const ring=new THREE.Mesh(new THREE.BoxGeometry(5.7,.12,3.35),new THREE.MeshBasicMaterial({color:step.phase==='backward'?0xe19bb1:step.phase==='update'?0xffcd8b:0x9affdf,transparent:true,opacity:.19,depthWrite:false}));ring.position.copy(pos);this.activeMarker.add(ring);
-      const line=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(5.72,.14,3.38)),new THREE.LineBasicMaterial({color:step.phase==='backward'?0xe8a4c8:0xaeffea,transparent:true,opacity:.95}));line.position.copy(pos);this.activeMarker.add(line);this.activeMarker.visible=true;
+      const markerWidth=this.micro&&this.microFamily==='gpt-oss'?7.9:this.micro&&this.microFamily==='gemma'?7.2:5.7;
+      const ring=new THREE.Mesh(new THREE.BoxGeometry(markerWidth,.12,3.35),new THREE.MeshBasicMaterial({color:step.phase==='backward'?0xe19bb1:step.phase==='update'?0xffcd8b:0x9affdf,transparent:true,opacity:.19,depthWrite:false}));ring.position.copy(pos);this.activeMarker.add(ring);
+      const line=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(markerWidth+.02,.14,3.38)),new THREE.LineBasicMaterial({color:step.phase==='backward'?0xe8a4c8:0xaeffea,transparent:true,opacity:.95}));line.position.copy(pos);this.activeMarker.add(line);this.activeMarker.visible=true;
       if(this.autoFollow&&this.micro&&previousLayer!==layer){const drift=THREE.MathUtils.clamp((pos.y-4.35)*.075,-.3,.3);this.fly(v(18.5,13+drift,22.5),v(.1,4.35+drift,0),550);}
       if(this.micro&&step.outputs?.[0]?.values.length){
         const values=step.outputs[0].values.slice(0,16),finite=values.filter(Number.isFinite),limit=Math.max(1e-12,...finite.map(Math.abs)),direction=step.phase==='backward'?-1:1,next=this.layerCenters.get(layer+direction)??pos.clone().add(v(0,.7*direction,0));this.flowFrom.set(2.02,pos.y,1.77);this.flowTo.set(2.02,next.y,1.77);this.flowGroup.position.copy(this.flowFrom);this.flowStart=performance.now();
@@ -373,11 +479,11 @@ export class AnatomyScene {
     if(matrix&&matrix.shape.length>=1&&matrix.values.length){
       const realCols=matrix.shape.at(-1)??1,realRows=matrix.shape.length>1?matrix.shape[0]:1,cols=Math.min(realCols,16),rows=Math.min(realRows,16),values:number[]=[],mask:boolean[]=[];
       for(let row=0;row<rows;row++)for(let col=0;col<cols;col++){values.push(matrix.values[row*realCols+col]??NaN);mask.push(matrix.mask?.[row*realCols+col]??false);}
-      const texture=this.heatTexture(values,rows,cols,mask,undefined,true),sprite=new THREE.Sprite(new THREE.SpriteMaterial({map:texture,transparent:true,depthTest:false})),anchor=this.selection.kind==='model'?v(4.8,Math.max(3,pos?.y??4),2):v(1.2,3,2);
-      sprite.scale.set(3.35,3.35*rows/cols,1);sprite.position.copy(anchor);sprite.renderOrder=8;this.overlay.add(sprite);
-      this.label(`[micro] ${step.name??'Computed activation'}`,anchor.clone().add(v(0,3.35*rows/cols/2+.43,0)),{color:'#c2eee5',width:5.2,scale:.8,parent:this.overlay});
-      this.label(`${matrix.shape.join(' × ')}${realRows>rows||realCols>cols?' · top-left window':''} · actual computed values`,anchor.clone().add(v(0,-3.35*rows/cols/2-.3,0)),{color:'#75a59d',width:4.6,scale:.75,parent:this.overlay});
-      if(pos)this.line([pos.clone().add(v(2.85,0,1.6)),anchor.clone().add(v(-1.65,0,0))],step.phase==='backward'?0xdc96b8:0x75dfca,.7,this.overlay);
+      const width=3*Math.min(1,cols/rows),height=3*Math.min(1,rows/cols),texture=this.heatTexture(values,rows,cols,mask,undefined,true),sprite=new THREE.Sprite(new THREE.SpriteMaterial({map:texture,transparent:true,depthTest:false})),anchor=this.selection.kind==='model'?v(4.8,THREE.MathUtils.clamp(pos?.y??4,4,7.6),2):v(1.2,3.5,2);
+      sprite.scale.set(width,height,1);sprite.position.copy(anchor);sprite.renderOrder=8;this.overlay.add(sprite);
+      this.label(`[micro] ${step.name??'Computed activation'}`,anchor.clone().add(v(0,height/2+.43,0)),{color:'#c2eee5',width:5.2,scale:.8,parent:this.overlay});
+      this.label(`${matrix.shape.join(' × ')}${realRows>rows||realCols>cols?' · top-left window':''} · actual computed values`,anchor.clone().add(v(0,-height/2-.3,0)),{color:'#75a59d',width:4.6,scale:.75,parent:this.overlay});
+      if(pos)this.line([pos.clone().add(v(2.85,0,1.6)),anchor.clone().add(v(-width/2,0,0))],step.phase==='backward'?0xdc96b8:0x75dfca,.7,this.overlay);
     }
   }
   private hits(event:MouseEvent){const rect=this.renderer.domElement.getBoundingClientRect();this.pointer.set((event.clientX-rect.left)/rect.width*2-1,-((event.clientY-rect.top)/rect.height*2-1));this.raycaster.setFromCamera(this.pointer,this.camera);return this.raycaster.intersectObjects(this.interactives,false);}
