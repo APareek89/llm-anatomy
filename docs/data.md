@@ -20,6 +20,8 @@ At runtime the browser first reads bundled files or IndexedDB. Other tiles use t
 npm run prefetch -- --tile 'model.language_model.layers.40.mlp.gate_proj.weight' 0 0
 ```
 
+At individual-cell zoom, dragging across an ordinary real tile's edge requests the next visible 256-grid tile through the same cache and budget checks. The camera preserves its absolute matrix coordinate as the new tile arrives. One previous tile remains dimmed for visual continuity; only the current tile accepts cell and axis inspection. Requests are serialized. A failed coordinate is not retried until the camera returns inside the loaded tile, preventing an error or exhausted budget from creating a request loop. Sparse exact token rows and Micro-Qwen parameter views retain their explicit row/column controls. In tensor and cell views, drag pans and Shift+drag orbits; the overview and layer views use ordinary drag to orbit.
+
 The generated browser fallback command includes `--browser-bytes N`, carrying its current response-byte count into the Node ledger. Use that generated command after browser downloads: the script imports additional usage once and checks the shared 150 MB limit before requesting data. Imported browser usage may also remain in localStorage, causing a conservative double count in the browser. Bundled default files are reused without additional Hugging Face traffic. Preserve both accounting records while using the budget; clearing them loses usage history. Concurrent Node processes cannot modify the same ledger: a process lock protects it, and corrupted ledgers stop new downloads.
 
 ## Correct reading of dimensions

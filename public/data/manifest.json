@@ -29935,7 +29935,7 @@
   },
   "range": {
     "node": true,
-    "browserCORS": "Range headers expose Access-Control-Allow-Origin: *. Root task performs real browser verification.",
-    "checkedAt": "2026-09-11T11:19:53.432Z"
+    "browserCORS": "Verified in Codex Chromium in-app browser at http://127.0.0.1:4173 on 2026-09-11: actual uncached layer 3 q_proj head-1 tile returned matching HTTP 206 Range and loaded [real] values.",
+    "checkedAt": "2026-09-11T11:39:51.901Z"
   }
 }

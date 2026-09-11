@@ -35,6 +35,8 @@ clip_scale = min(1, 1 / gradient_norm)
 weight_after = weight_before − learning_rate × clip_scale × gradient
 ```
 
+During an animated batch, operation gradients belong to the recorded first example and include its `1 / batch_size` contribution. The parameter-gradient and update records use the accumulated gradient of the entire batch. Head-0 attention/state matrices are slices; gradients on shared Q/K or key inputs include every head using that tensor. Batch-summary probability, per-token loss and sentence-mean loss values also expose their exact cross-entropy derivatives. Token IDs and token-selection decisions are discrete and have no gradient. Inference has no loss/backward pass, so its records have no gradients. The optimizer update and gradient-visualization records are not differentiated again: there are no invented higher-order gradients through SGD.
+
 The displayed update includes the clipping factor, so the shown arithmetic can be checked against the weight arrays. There is no hidden optimizer, hand-authored prediction distribution, transition table or output override. Only the embedding rows looked up in a batch receive gradients through the embedding operation; the untied output head is a separate parameter matrix.
 
 ## Measured training result

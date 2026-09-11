@@ -1,12 +1,13 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import type { ModelManifest, TensorMeta, WeightTile } from '../data/hf';
+import { axesMeaning, cellMeaning } from '../ui/content';
 
 export interface Selection { kind:'model'|'layer'|'tensor'|'cell'; layer?:number; tensor?:string; row?:number; col?:number }
-interface Callbacks { onSelect:(selection:Selection)=>void; onStats?:(stats:{fps:number;renderer:string;lod:number;instances:number})=>void }
+interface Callbacks { onSelect:(selection:Selection)=>void; onStats?:(stats:{fps:number;renderer:string;lod:number;instances:number})=>void; onTileRequest?:(name:string,row:number,col:number)=>Promise<void> }
 interface StepLike { name?:string; layer?:number; phase?:string; parameter?:string; matrix?:{shape:number[];values:number[];mask?:boolean[]}; inputs?:{name:string;shape:number[];values:number[]}[]; outputs?:{name:string;shape:number[];values:number[]}[] }
 type HitMesh = THREE.Mesh | THREE.InstancedMesh;
-const C={delta:0x54dccb,attention:0xa493ff,ffn:0xc5ae83,norm:0xa0b3bf,embedding:0x7fbae2,vision:0x739b91,mtp:0xc1a0e5,head:0xe9cfa1};
+const C={delta:0x54dccb,attention:0xa493ff,ffn:0x898174,norm:0x7e929d,embedding:0x739dbc,vision:0x577e72,mtp:0xa58ac5,head:0xb4a487};
 const v=(x:number,y:number,z:number)=>new THREE.Vector3(x,y,z);
 const short=(name:string)=>name.replace(/^model\.language_model\./,'').replace(/^model\.visual\./,'vision.');
 const leaf=(name:string)=>name.split('.').slice(-2).join('.');
@@ -43,6 +44,12 @@ export class AnatomyScene {
   private activeMarker=new THREE.Group();
   private followStep?:StepLike;
   private autoFollow=true;
+  private playing=false;
+  private playbackSpeed=.5;
+  private flowGroup=new THREE.Group();
+  private flowStart=0;
+  private flowFrom=new THREE.Vector3();
+  private flowTo=new THREE.Vector3();
   private observer:ResizeObserver;
   private history:Selection[]=[];
   private disposed=false;
@@ -54,7 +61,15 @@ export class AnatomyScene {
   private tileDimensions={width:6.6,height:6.6};
   private tileOrigin=new THREE.Vector3(0,3.8,0);
   private tileGroup=new THREE.Group();
+  private previousTileGroup=new THREE.Group();
+  private tileSizeOverride?:{width:number;height:number};
+  private streamArmed=false;
+  private streamPending?:{key:string;name:string;row:number;col:number};
+  private streamFailed=new Set<string>();
+  private streamRequestedAt=0;
   private loadingGroup=new THREE.Group();
+  private highlightGroup=new THREE.Group();
+  private highlightKey='';
   private hoveredCell?:string;
   private hoverElement:HTMLDivElement;
   private cellRangeKey='';
@@ -62,6 +77,7 @@ export class AnatomyScene {
   private updateCellsAt=0;
   private lastLodChange=0;
   private pointerMove=(event:PointerEvent)=>this.onPointerMove(event);
+  private pointerLeave=()=>{this.hoverElement.style.display='none';this.highlightGroup.visible=false;};
   private pointerDown=(event:PointerEvent)=>{this.dragStart={x:event.clientX,y:event.clientY};};
   private pointerUp=(event:PointerEvent)=>{if(Math.hypot(event.clientX-this.dragStart.x,event.clientY-this.dragStart.y)<5)this.pick(event,false);};
   private doubleClick=(event:MouseEvent)=>this.pick(event,true);
@@ -73,24 +89,24 @@ export class AnatomyScene {
     this.renderer.setClearColor(0x070d13,0);
     this.renderer.outputColorSpace=THREE.SRGBColorSpace;
     this.renderer.toneMapping=THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure=1.35;
+    this.renderer.toneMappingExposure=.95;
     this.renderer.domElement.setAttribute('aria-label','Interactive three-dimensional Qwen model. Drag to orbit, scroll to zoom, click a layer, double-click a tensor, Escape to return.');
     this.renderer.domElement.style.cssText='display:block;width:100%;height:100%;touch-action:none;outline:none';
     container.appendChild(this.renderer.domElement);
     this.scene.fog=new THREE.FogExp2(0x070d13,.014);
-    this.scene.add(new THREE.HemisphereLight(0xc8e8ef,0x12202f,2.0));
-    const key=new THREE.DirectionalLight(0xd5f0ff,3.4);key.position.set(6,15,8);this.scene.add(key);
-    const rim=new THREE.DirectionalLight(0x758bc8,2.3);rim.position.set(-8,6,-9);this.scene.add(rim);
-    const teal=new THREE.PointLight(C.delta,40,22,2);teal.position.set(-5,4,5);this.scene.add(teal);
-    this.scene.add(this.decor,this.content,this.overlay,this.activeMarker,this.tileGroup,this.cellLabels,this.loadingGroup);
+    this.scene.add(new THREE.HemisphereLight(0xc8e8ef,0x12202f,.65));
+    const key=new THREE.DirectionalLight(0xd5f0ff,1.4);key.position.set(6,15,8);this.scene.add(key);
+    const rim=new THREE.DirectionalLight(0x758bc8,1.05);rim.position.set(-8,6,-9);this.scene.add(rim);
+    const teal=new THREE.PointLight(C.delta,16,22,2);teal.position.set(-5,4,5);this.scene.add(teal);
+    this.scene.add(this.decor,this.content,this.overlay,this.activeMarker,this.previousTileGroup,this.tileGroup,this.cellLabels,this.loadingGroup,this.highlightGroup,this.flowGroup);
     this.controls=new OrbitControls(this.camera,this.renderer.domElement);
     this.controls.enableDamping=true;this.controls.dampingFactor=.075;this.controls.minDistance=.015;this.controls.maxDistance=65;
     this.controls.maxPolarAngle=Math.PI*.92;this.controls.zoomSpeed=.8;this.controls.panSpeed=.8;this.controls.zoomToCursor=true;
-    this.controls.addEventListener('start',()=>{this.tween=undefined;});
+    this.controls.addEventListener('start',()=>{this.tween=undefined;this.streamArmed=true;});
     this.createGround();
     this.camera.position.set(16,12.3,19);this.controls.target.set(.4,5.2,0);
     const canvas=this.renderer.domElement;
-    canvas.addEventListener('pointermove',this.pointerMove);canvas.addEventListener('pointerdown',this.pointerDown);canvas.addEventListener('pointerup',this.pointerUp);canvas.addEventListener('dblclick',this.doubleClick);
+    canvas.addEventListener('pointermove',this.pointerMove);canvas.addEventListener('pointerleave',this.pointerLeave);canvas.addEventListener('pointerdown',this.pointerDown);canvas.addEventListener('pointerup',this.pointerUp);canvas.addEventListener('dblclick',this.doubleClick);
     window.addEventListener('keydown',this.keyDown);
     this.hoverElement=document.createElement('div');this.hoverElement.style.cssText='position:absolute;pointer-events:none;display:none;z-index:8;max-width:330px;padding:10px 13px;border:1px solid #40636e;border-radius:9px;background:rgba(9,21,28,.96);color:#c7e0e4;font:12px/1.55 ui-monospace,monospace;box-shadow:0 8px 30px #0008;white-space:pre-line';container.appendChild(this.hoverElement);
     this.observer=new ResizeObserver(()=>this.resize());this.observer.observe(container);this.resize();
@@ -100,18 +116,17 @@ export class AnatomyScene {
   resize(){const w=Math.max(1,this.container.clientWidth),h=Math.max(1,this.container.clientHeight);this.camera.aspect=w/h;this.camera.updateProjectionMatrix();this.renderer.setSize(w,h,false);}
   private box(width:number,height:number,depth:number,color:number,position:THREE.Vector3,selection?:Selection,opacity=1){
     const geometry=new THREE.BoxGeometry(width,height,depth);
-    const material=new THREE.MeshStandardMaterial({color,metalness:.35,roughness:.36,transparent:opacity<1,opacity,emissive:color,emissiveIntensity:.045});
+    const material=new THREE.MeshStandardMaterial({color,metalness:.35,roughness:.43,transparent:opacity<1,opacity,emissive:color,emissiveIntensity:.045});
     const mesh=new THREE.Mesh(geometry,material);mesh.position.copy(position);
     const edges=new THREE.LineSegments(new THREE.EdgesGeometry(geometry),new THREE.LineBasicMaterial({color,transparent:true,opacity:.55}));mesh.add(edges);
     if(selection){mesh.userData.selection=selection;this.interactives.push(mesh);}
     this.content.add(mesh);return mesh;
   }
   private label(text:string,position:THREE.Vector3,options:{color?:string;scale?:number;width?:number;opacity?:number;parent?:THREE.Group}={}){
-    const canvas=document.createElement('canvas');canvas.width=1024;canvas.height=128;
-    const ctx=canvas.getContext('2d')!;ctx.clearRect(0,0,1024,128);ctx.font='500 44px "SF Pro Display", Inter, -apple-system, sans-serif';ctx.textBaseline='middle';ctx.fillStyle=options.color??'#b2c5cf';ctx.fillText(text,14,64,995);
+    const canvas=document.createElement('canvas');canvas.height=96;let ctx=canvas.getContext('2d')!;ctx.font='500 44px "SF Pro Display", Inter, -apple-system, sans-serif';canvas.width=Math.max(96,Math.min(2048,Math.ceil(ctx.measureText(text).width)+28));ctx=canvas.getContext('2d')!;ctx.font='500 44px "SF Pro Display", Inter, -apple-system, sans-serif';ctx.textBaseline='middle';ctx.textAlign='center';ctx.fillStyle=options.color??'#b2c5cf';ctx.fillText(text,canvas.width/2,48,canvas.width-24);
     const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;
     const sprite=new THREE.Sprite(new THREE.SpriteMaterial({map:texture,transparent:true,opacity:options.opacity??.95,depthTest:false}));
-    const s=options.scale??1;sprite.scale.set((options.width??3.2)*s,.4*s,1);sprite.position.copy(position);sprite.renderOrder=5;(options.parent??this.content).add(sprite);return sprite;
+    const s=options.scale??1,w=(options.width??3.2)*s;sprite.scale.set(w,Math.min(.62*s,w*96/canvas.width),1);sprite.position.copy(position);sprite.renderOrder=5;(options.parent??this.content).add(sprite);return sprite;
   }
   private line(points:THREE.Vector3[],color:number,opacity=.5,parent:THREE.Group=this.content){
     const geometry=new THREE.BufferGeometry().setFromPoints(points),line=new THREE.Line(geometry,new THREE.LineBasicMaterial({color,transparent:true,opacity}));parent.add(line);return line;
@@ -126,9 +141,9 @@ export class AnatomyScene {
   private clear(group:THREE.Group){
     while(group.children.length){const object=group.children[0];group.remove(object);object.traverse(child=>{const item=child as THREE.Mesh;item.geometry?.dispose();const materials=item.material?(Array.isArray(item.material)?item.material:[item.material]):[];materials.forEach(material=>{(material as THREE.MeshBasicMaterial).map?.dispose();material.dispose();});});}
   }
-  private resetContent(){this.clear(this.content);this.clear(this.overlay);this.clear(this.tileGroup);this.clear(this.cellLabels);this.clear(this.loadingGroup);this.interactives=[];this.hovered=undefined;this.hoveredCell=undefined;this.hoverElement.style.display='none';this.cellMesh=undefined;this.tilePlane=undefined;this.numericPlane=undefined;this.cellRangeKey='';this.layerCenters.clear();this.tensorMeta=undefined;this.tensorTile=undefined;this.activeMarker.visible=false;this.decor.visible=true;}
+  private resetContent(){this.clear(this.content);this.clear(this.overlay);this.clear(this.tileGroup);this.clear(this.previousTileGroup);this.clear(this.cellLabels);this.clear(this.loadingGroup);this.clear(this.highlightGroup);this.clear(this.flowGroup);this.highlightKey='';this.interactives=[];this.hovered=undefined;this.hoveredCell=undefined;this.hoverElement.style.display='none';this.cellMesh=undefined;this.tilePlane=undefined;this.numericPlane=undefined;this.cellRangeKey='';this.layerCenters.clear();this.tensorMeta=undefined;this.tensorTile=undefined;this.tileSizeOverride=undefined;this.streamPending=undefined;this.streamFailed.clear();this.streamArmed=false;this.activeMarker.visible=false;this.decor.visible=true;}
   private enter(s:Selection,push=true){if(push&&JSON.stringify(s)!==JSON.stringify(this.selection))this.history.push({...this.selection});this.selection={...s};this.callbacks.onSelect({...s});}
-  private fly(position:THREE.Vector3,target:THREE.Vector3,duration=950){this.tween={start:performance.now(),duration,from:this.camera.position.clone(),to:position,targetFrom:this.controls.target.clone(),targetTo:target};}
+  private fly(position:THREE.Vector3,target:THREE.Vector3,duration=950){this.streamArmed=false;this.tween={start:performance.now(),duration,from:this.camera.position.clone(),to:position,targetFrom:this.controls.target.clone(),targetTo:target};}
   private layerData(){
     if(!this.micro)return this.manifest.layers;
     return Array.from({length:this.microLayers},(_,index)=>{const params=this.microParameters.filter(p=>p.name.startsWith(`layers.${index}.`));return {index,kind:index%4===3?'full_attention':'linear_attention',names:params.map(p=>p.name),params:params.reduce((n,p)=>n+p.shape.reduce((a,b)=>a*b,1),0)||1,bytes:0};});
@@ -167,13 +182,14 @@ export class AnatomyScene {
     }
     this.label(this.micro?'MICRO-QWEN · LIVE SIMULATION':'QWEN 3.8 · 27B',v(x,-.14,3.5),{color:'#d6e5e7',width:4.0,scale:1.05});
     this.label(`${layers.length} layers · ${this.micro?'[micro]':'[config]'} · click to explore`,v(x,-.48,3.5),{color:'#607c89',width:4.2,scale:.85});
-    const target=v(.1,this.micro?4.5:5.45,0);this.fly(v(this.micro?13:16,this.micro?10.5:12.3,this.micro?16.5:19),target);
+    const target=v(.1,this.micro?4.35:5.1,0);this.fly(v(this.micro?18.5:21.8,this.micro?13:15.3,this.micro?22.5:26),target);
   }
 
   showLayer(index:number){
     const layer=this.layerData().find(x=>x.index===index);if(!layer)return;
     this.resetContent();this.lod=1;this.enter({kind:'layer',layer:index});this.decor.visible=false;
     const full=layer.kind==='full_attention',mixerColor=full?C.attention:C.delta,groups=[{key:'norm',names:layer.names.filter(n=>n.includes('layernorm')),x:-5.05,title:'NORMALIZE'},{key:'mixer',names:layer.names.filter(n=>n.includes(full?'self_attn':'linear_attn')),x:-.8,title:full?'GATED ATTENTION':'GATED DELTANET'},{key:'ffn',names:layer.names.filter(n=>n.includes('.mlp.')),x:4.9,title:'FEED-FORWARD'}];
+    const maximumDimension=Math.max(1,...layer.names.flatMap(name=>{const meta=this.meta(name);return meta&&meta.shape.length>=2?[meta.shape[0],meta.shape.slice(1).reduce((a,b)=>a*b,1)]:[];})),matrixScale=2.7/maximumDimension;
     this.label(`LAYER ${String(index).padStart(2,'0')} · ${full?'GATED ATTENTION':'GATED DELTANET'}`,v(0,8.25,0),{color:full?'#bfafff':'#8ae8d9',width:8,scale:1.2});
     this.label(`${count(layer.params)} parameters · ${this.micro?'[micro]':'[config]'} · every block is a named tensor`,v(0,7.7,0),{color:'#73929f',width:8,scale:.9});
     for(const group of groups){
@@ -182,9 +198,9 @@ export class AnatomyScene {
       for(let i=0;i<group.names.length;i++){
         const meta=this.meta(group.names[i]);if(!meta)continue;
         const col=i%cols,row=Math.floor(i/cols),px=group.x+(col-(cols-1)/2)*(group.key==='ffn'?2.1:1.62),py=(group.key==='ffn'?4.55:5.8)-row*1.38,inDim=meta.shape.slice(1).reduce((a,b)=>a*b,1),outDim=meta.shape[0];
-        const scale=group.key==='ffn'?2.7/(this.micro?128:17408):1.23/Math.max(inDim,outDim,1),w=Math.max(.2,inDim*scale),h=Math.max(.12,outDim*scale),d=meta.shape.length===1?.13:.24;
+        const vector=meta.shape.length===1,w=vector?.12:inDim*matrixScale,h=vector?Math.max(.08,outDim*matrixScale):outDim*matrixScale,d=vector?.1:.24;
         const mesh=this.box(w,h,d,colorFor(meta.name),v(px,py,.12),{kind:'tensor',layer:index,tensor:meta.name});mesh.userData.tensor=meta.name;
-        this.label(leaf(meta.name),v(px,py-h/2-.23,.38),{color:'#a5bbc4',width:group.key==='ffn'?3.5:2.7,scale:.7});
+        this.label(leaf(meta.name),v(px,py-h/2-.23,.38),{color:'#a5bbc4',width:group.key==='ffn'?2.8:2.2,scale:.7});
         this.label(meta.shape.join(' × '),v(px,py-h/2-.48,.4),{color:'#586f7a',width:2.2,scale:.65});
         if(full&&meta.name.includes('q_proj'))this.headBands(mesh,w,h,this.micro?6:this.manifest.config.text_config.num_attention_heads,true);
         else if(full&&/[kv]_proj/.test(meta.name))this.headBands(mesh,w,h,this.micro?1:this.manifest.config.text_config.num_key_value_heads,false);
@@ -203,7 +219,7 @@ export class AnatomyScene {
       const p=`layers.${index}.linear_attn`,stateHeads=this.micro?(this.meta(`${p}.A_log`)?.shape[0]??3):this.manifest.config.text_config.linear_num_value_heads,stateDim=this.micro?(this.meta(`${p}.norm.weight`)?.shape[0]??8):this.manifest.config.text_config.linear_value_head_dim;
       this.box(2.45,.84,.15,C.delta,v(-4.85,1.9,.25),undefined,.17);this.label('RECURRENT STATE · ACTIVATION',v(-4.85,2.55,.3),{color:'#75b1a6',width:3.55,scale:.75});this.label(`${stateHeads} heads × ${stateDim} × ${stateDim}`,v(-4.85,1.18,.3),{color:'#548b80',width:3.1,scale:.72});
     }
-    this.fly(v(1.5,8.8,18.8),v(.15,3.95,0));
+    this.fly(v(2.0,10.5,27.5),v(.75,4.05,0));
   }
   private headBands(mesh:THREE.Mesh,width:number,height:number,heads:number,queryGate:boolean){
     for(let h=1;h<heads;h++){const y=-height/2+h*height/heads;const line=new THREE.Line(new THREE.BufferGeometry().setFromPoints([v(-width/2,y,.126),v(width/2,y,.126)]),new THREE.LineBasicMaterial({color:0xddd2ff,transparent:true,opacity:.65}));mesh.add(line);}
@@ -213,34 +229,49 @@ export class AnatomyScene {
   showTensor(meta:TensorMeta,tile?:WeightTile){
     this.resetContent();this.lod=2;this.enter({kind:'tensor',layer:meta.layer,tensor:meta.name});this.tensorMeta=meta;this.tensorTile=tile;this.decor.visible=false;
     this.renderTensor();
-    this.fly(v(.2,4.5,12.3),v(0,3.8,0));
+    this.fly(v(.2,4.5,20),v(0,3.8,0));
   }
-  setTile(tile:WeightTile){if(this.tensorMeta&&this.tensorMeta.name===tile.name){this.tensorTile=tile;this.renderTensor();}}
+  setTile(tile:WeightTile){
+    if(!this.tensorMeta||this.tensorMeta.name!==tile.name)return;
+    const prior=this.tensorTile,size={...this.tileDimensions},pending=this.streamPending,streamed=prior&&pending?.name===tile.name&&pending.row===tile.row&&pending.col===tile.col;
+    this.clear(this.previousTileGroup);
+    if(streamed){
+      const cw=size.width/prior.cols,ch=size.height/prior.rows,width=tile.cols*cw,height=tile.rows*ch,shift=v((size.width-width)/2+(prior.col-tile.col)*cw,(height-size.height)/2+(tile.row-prior.row)*ch,0);
+      // Rebase the local tile origin without moving the absolute weight under the camera.
+      this.tileSizeOverride={width,height};this.camera.position.add(shift);this.controls.target.add(shift);
+      if(this.tween){this.tween.from.add(shift);this.tween.to.add(shift);this.tween.targetFrom.add(shift);this.tween.targetTo.add(shift);}
+      const texture=this.heatTexture(prior.values,prior.rows,prior.cols,undefined,prior.stats),mesh=new THREE.Mesh(new THREE.PlaneGeometry(size.width,size.height),new THREE.MeshBasicMaterial({map:texture,side:THREE.DoubleSide,toneMapped:false,fog:false,transparent:true,opacity:.55,depthWrite:false}));
+      mesh.position.copy(this.tileOrigin).add(shift).add(v(0,0,-.012));this.previousTileGroup.add(mesh);
+    }else{this.tileSizeOverride=undefined;this.streamArmed=false;this.streamPending=undefined;this.streamFailed.clear();}
+    this.tensorTile=tile;this.renderTensor();
+  }
   setLoading(progress:number){
     this.clear(this.loadingGroup);if(progress>=1||progress<0||!this.tensorMeta)return;
     const radius=.34,geometry=new THREE.TorusGeometry(radius,.022,8,64,Math.max(.08,progress)*Math.PI*2),ring=new THREE.Mesh(geometry,new THREE.MeshBasicMaterial({color:C.delta}));ring.position.copy(this.tileOrigin).add(v(0,-.7,.18));this.loadingGroup.add(ring);
   }
   private renderTensor(){
-    const meta=this.tensorMeta;if(!meta)return;this.clear(this.content);this.clear(this.tileGroup);this.clear(this.cellLabels);this.clear(this.loadingGroup);this.interactives=[];this.cellMesh=undefined;this.tilePlane=undefined;this.numericPlane=undefined;this.cellRangeKey='';
-    const tile=this.tensorTile,fullRows=meta.shape[0],fullCols=meta.shape.slice(1).reduce((a,b)=>a*b,1),rows=tile?.rows??Math.min(256,fullRows),cols=tile?.cols??Math.min(256,fullCols),width=Math.max(.65,6.6*Math.min(1,cols/rows)),height=Math.max(.65,6.6*Math.min(1,rows/cols));this.tileDimensions={width,height};
+    const meta=this.tensorMeta;if(!meta)return;this.clear(this.content);this.clear(this.tileGroup);this.clear(this.cellLabels);this.clear(this.loadingGroup);this.clear(this.highlightGroup);this.highlightKey='';this.interactives=[];this.cellMesh=undefined;this.tilePlane=undefined;this.numericPlane=undefined;this.cellRangeKey='';
+    const tile=this.tensorTile,fullRows=meta.shape[0],fullCols=meta.shape.slice(1).reduce((a,b)=>a*b,1),rows=tile?.rows??Math.min(256,fullRows),cols=tile?.cols??Math.min(256,fullCols),width=this.tileSizeOverride?.width??Math.max(.65,6.6*Math.min(1,cols/rows)),height=this.tileSizeOverride?.height??Math.max(.65,6.6*Math.min(1,rows/cols));this.tileDimensions={width,height};
     this.box(width+.13,height+.13,.115,0x1d303b,this.tileOrigin.clone().add(v(0,0,-.075)),undefined,.9);
     const texture=tile?this.heatTexture(tile.values,rows,cols,undefined,tile.stats):this.emptyTexture();
-    const plane=new THREE.Mesh(new THREE.PlaneGeometry(width,height),new THREE.MeshBasicMaterial({map:texture,side:THREE.DoubleSide}));plane.position.copy(this.tileOrigin);plane.userData.selection={kind:'tensor',layer:meta.layer,tensor:meta.name};this.tilePlane=plane;this.tileGroup.add(plane);this.interactives.push(plane);
-    this.label(short(meta.name),v(0,7.95,0),{color:'#d1e2e7',width:9.2});
-    this.label(`${meta.shape.join(' × ')} · ${this.micro?'[micro]':'[config]'} shape · ${count(meta.params)} parameters`,v(0,7.53,0),{color:'#8aa4af',width:7.5,scale:.85});
+    const plane=new THREE.Mesh(new THREE.PlaneGeometry(width,height),new THREE.MeshBasicMaterial({map:texture,side:THREE.DoubleSide,toneMapped:false,fog:false}));plane.position.copy(this.tileOrigin);plane.userData.selection={kind:'tensor',layer:meta.layer,tensor:meta.name};this.tilePlane=plane;this.tileGroup.add(plane);this.interactives.push(plane);
+    this.label(short(meta.name),v(0,8.45,0),{color:'#d1e2e7',width:9.2});
+    this.label(`${meta.shape.join(' × ')} · ${this.micro?'[micro]':'[config]'} shape · ${count(meta.params)} parameters`,v(0,8.05,0),{color:'#8aa4af',width:7.5,scale:.85});
     const startRow=tile?.row??0,startCol=tile?.col??0;
-    this.label(tile?`[${tile.source}] TILE · rows ${startRow}–${startRow+rows-1} / ${fullRows} · columns ${startCol}–${startCol+cols-1} / ${fullCols}`:'NOT LOADED — CLICK TO FETCH',v(0,7.13,0),{color:tile?'#75d8c7':'#a5b4b9',width:8.5,scale:.78});
-    this.label(`INPUT FEATURES  ${startCol} → ${startCol+cols-1}`,v(0,this.tileOrigin.y-height/2-.34,0),{color:'#87a8b4',width:5.4,scale:.85});
+    this.label(tile?`[${tile.source}] TILE · rows ${startRow}–${startRow+rows-1} / ${fullRows} · columns ${startCol}–${startCol+cols-1} / ${fullCols}`:'NOT LOADED — CLICK TO FETCH',v(0,7.67,0),{color:tile?'#75d8c7':'#a5b4b9',width:8.5,scale:.78});
+    const vector=meta.shape.length===1,columnMeaning=meta.name.includes('embed_tokens')?'EMBEDDING COORDINATES':meta.name.includes('conv1d')?'KERNEL POSITIONS':'INPUT FEATURES';
+    this.label(vector?'PARAMETER VECTOR · NO INPUT-COLUMN AXIS':`${columnMeaning}  ${startCol} → ${startCol+cols-1}`,v(0,this.tileOrigin.y-height/2-.34,0),{color:'#87a8b4',width:5.4,scale:.85});
     let rowMeaning='OUTPUT FEATURES';
-    if(meta.name.includes('embed'))rowMeaning='TOKEN IDs';else if(meta.name.includes('lm_head'))rowMeaning='VOCABULARY LOGITS';else if(meta.name.includes('q_proj')){const dim=this.micro?16:this.manifest.config.text_config.head_dim,head=Math.floor(startRow/(2*dim)),offset=startRow%(2*dim);rowMeaning=`HEAD ${head} · ${offset>=dim?'GATE':'QUERY'} DIMENSIONS`;}else if(/[kv]_proj/.test(meta.name)){const dim=this.micro?16:this.manifest.config.text_config.head_dim;rowMeaning=`KV HEAD ${Math.floor(startRow/dim)} DIMENSIONS`;}
+    if(meta.name.includes('embed'))rowMeaning='TOKEN IDs';else if(meta.name.includes('lm_head'))rowMeaning='VOCABULARY LOGITS';else if(meta.name.includes('conv1d'))rowMeaning='FEATURE CHANNELS';else if(vector)rowMeaning=meta.name.includes('A_log')||meta.name.includes('dt_bias')?'DELTANET VALUE HEADS':'FEATURE COORDINATES';else if(meta.name.includes('q_proj')){const dim=this.micro?16:this.manifest.config.text_config.head_dim,head=Math.floor(startRow/(2*dim)),offset=startRow%(2*dim);rowMeaning=`HEAD ${head} · ${offset>=dim?'GATE':'QUERY'} DIMENSIONS`;}else if(/[kv]_proj/.test(meta.name)){const dim=this.micro?16:this.manifest.config.text_config.head_dim;rowMeaning=`KV HEAD ${Math.floor(startRow/dim)} DIMENSIONS`;}
     this.label(`${rowMeaning}  ${startRow} → ${startRow+rows-1}`,v(0,this.tileOrigin.y-height/2-.67,0),{color:'#70939e',width:7,scale:.78});
     for(const f of [0,.25,.5,.75,1]){
       const row=Math.min(rows-1,Math.floor(f*rows)),col=Math.min(cols-1,Math.floor(f*cols));
       this.label(String(startRow+row),v(-width/2-.36,this.tileOrigin.y+height/2-f*height,0),{color:'#65848e',width:.85,scale:.8});
-      this.label(String(startCol+col),v(-width/2+f*width,this.tileOrigin.y+height/2+.18,0),{color:'#65848e',width:.8,scale:.75});
+      if(!vector)this.label(String(startCol+col),v(-width/2+f*width,this.tileOrigin.y+height/2+.18,0),{color:'#65848e',width:.8,scale:.75});
     }
+    for(const axis of (vector?['row']:['row','column']) as ('row'|'column')[]){const mesh=new THREE.Mesh(new THREE.PlaneGeometry(axis==='row'?.6:width,axis==='row'?height:.43),new THREE.MeshBasicMaterial({transparent:true,opacity:0,depthWrite:false,side:THREE.DoubleSide}));mesh.position.set(axis==='row'?-width/2-.33:0,axis==='row'?this.tileOrigin.y:this.tileOrigin.y+height/2+.19,.015);mesh.userData.axis=axis;mesh.userData.selection={kind:'tensor',layer:meta.layer,tensor:meta.name};this.content.add(mesh);this.interactives.push(mesh);}
     if(meta.name.includes('.self_attn.')&&/[qkv]_proj/.test(meta.name))this.tensorHeadRuler(meta,tile);
-    if(tile){this.colorLegend(tile);this.label('Scroll closer to resolve individual weights · drag to orbit / pan',v(0,-.66,0),{color:'#567680',width:8,scale:.77});}
+    if(tile){this.colorLegend(tile);this.label('Scroll to resolve weights · drag to pan · Shift+drag to orbit',v(0,-.66,0),{color:'#567680',width:8,scale:.77});}
     else this.label(this.micro?'Micro weights live in the simulation worker':'Not loaded — click to fetch',this.tileOrigin.clone().add(v(0,0,.02)),{color:'#9bb0b7',width:5.9});
   }
   private emptyTexture(){const canvas=document.createElement('canvas');canvas.width=512;canvas.height=512;const ctx=canvas.getContext('2d')!;ctx.fillStyle='#101f28';ctx.fillRect(0,0,512,512);ctx.strokeStyle='#1e323c';ctx.lineWidth=1;for(let i=0;i<=512;i+=32){ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,512);ctx.stroke();ctx.beginPath();ctx.moveTo(0,i);ctx.lineTo(512,i);ctx.stroke();}const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;return texture;}
@@ -280,7 +311,7 @@ export class AnatomyScene {
     const c0=Math.max(0,Math.min(tile.cols-1,centerCol-halfCols)),c1=Math.min(tile.cols,Math.max(1,centerCol+halfCols)),r0=Math.max(0,Math.min(tile.rows-1,centerRow-halfRows)),r1=Math.min(tile.rows,Math.max(1,centerRow+halfRows)),numbers=cellPixels>=40;
     const key=[r0,r1,c0,c1,numbers].join(':');if(this.cellRangeKey===key)return;this.cellRangeKey=key;
     const capacity=25600;
-    if(!this.cellMesh){this.cellMesh=new THREE.InstancedMesh(new THREE.PlaneGeometry(cellWidth*.975,cellHeight*.975),new THREE.MeshBasicMaterial({side:THREE.DoubleSide}),capacity);this.cellMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);this.cellMesh.userData.selection={kind:'cell',tensor:tile.name,layer:this.tensorMeta.layer};this.cellMesh.frustumCulled=false;this.tileGroup.add(this.cellMesh);this.interactives.unshift(this.cellMesh);}
+    if(!this.cellMesh){this.cellMesh=new THREE.InstancedMesh(new THREE.PlaneGeometry(cellWidth*.975,cellHeight*.975),new THREE.MeshBasicMaterial({side:THREE.DoubleSide,toneMapped:false,fog:false}),capacity);this.cellMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);this.cellMesh.userData.selection={kind:'cell',tensor:tile.name,layer:this.tensorMeta.layer};this.cellMesh.frustumCulled=false;this.tileGroup.add(this.cellMesh);this.interactives.unshift(this.cellMesh);}
     const matrix=new THREE.Matrix4(),limit=Math.max(Math.abs(tile.stats.p01),Math.abs(tile.stats.p99),1e-12),indices:{row:number;col:number}[]=[];let n=0;
     for(let row=r0;row<r1;row++)for(let col=c0;col<c1;col++){if(n>=capacity)break;matrix.makeTranslation(-this.tileDimensions.width/2+(col+.5)*cellWidth,this.tileOrigin.y+this.tileDimensions.height/2-(row+.5)*cellHeight,.002);this.cellMesh.setMatrixAt(n,matrix);this.cellMesh.setColorAt(n,this.heatColor(tile.values[row*tile.cols+col],limit));indices.push({row:row+tile.row,col:col+tile.col});n++;}
     this.cellMesh.count=n;this.cellMesh.userData.cells=indices;this.cellMesh.instanceMatrix.needsUpdate=true;if(this.cellMesh.instanceColor)this.cellMesh.instanceColor.needsUpdate=true;
@@ -299,17 +330,42 @@ export class AnatomyScene {
     }else if(this.lod>=2&&distance>26){this.lastLodChange=now;if(this.tensorMeta?.layer!==undefined)this.showLayer(this.tensorMeta.layer);else this.showModel();}
     else if(this.lod===1&&distance>34){this.lastLodChange=now;this.showModel();}
   }
+  private streamAdjacentTile(now:number){
+    const tile=this.tensorTile,meta=this.tensorMeta,request=this.callbacks.onTileRequest;
+    if(!request||!tile||!meta||tile.source!=='real'||this.lod!==3||this.tween||!this.streamArmed)return;
+    // Exact sparse token rows retain their own coordinate layout; ordinary tiles use the loader's 256-cell grid.
+    if(tile.rows<2||tile.cols<2||tile.row%256!==0||tile.col%256!==0)return;
+    this.raycaster.setFromCamera(new THREE.Vector2(),this.camera);const center=new THREE.Vector3();
+    if(!this.raycaster.ray.intersectPlane(new THREE.Plane(v(0,0,1),-this.tileOrigin.z),center))return;
+    const cw=this.tileDimensions.width/tile.cols,ch=this.tileDimensions.height/tile.rows,localCol=(center.x+this.tileDimensions.width/2)/cw,localRow=(this.tileOrigin.y+this.tileDimensions.height/2-center.y)/ch;
+    if(localCol>=0&&localCol<tile.cols&&localRow>=0&&localRow<tile.rows){this.streamFailed.clear();return;}
+    if(this.streamPending||now-this.streamRequestedAt<450)return;
+    const fullRows=meta.shape[0],fullCols=meta.shape.slice(1).reduce((a,b)=>a*b,1),row=Math.max(0,Math.min(Math.floor((fullRows-1)/256)*256,Math.floor((tile.row+localRow)/256)*256)),col=Math.max(0,Math.min(Math.floor((fullCols-1)/256)*256,Math.floor((tile.col+localCol)/256)*256));
+    if(row===tile.row&&col===tile.col)return;
+    const key=`${tile.name}:${row}:${col}`;if(this.streamFailed.has(key))return;
+    const pending={key,name:tile.name,row,col};this.streamPending=pending;this.streamRequestedAt=now;
+    void request(tile.name,row,col).then(()=>{
+      // A cancelled fetch may resolve without installing a tile. Treat it as a failed coordinate until re-entry.
+      if(this.streamPending===pending&&(this.tensorTile?.row!==row||this.tensorTile?.col!==col))this.streamFailed.add(key);
+    }).catch(()=>{if(this.streamPending===pending)this.streamFailed.add(key);}).finally(()=>{if(this.streamPending===pending)this.streamPending=undefined;});
+  }
   focus(selection:Selection){if(selection.kind==='model')this.showModel();else if(selection.kind==='layer'&&selection.layer!==undefined)this.showLayer(selection.layer);else if(selection.kind==='cell'&&this.tensorTile?.name===selection.tensor&&selection.row!==undefined&&selection.col!==undefined){this.focusCell(selection.row,selection.col);this.callbacks.onSelect(selection);}else if(selection.tensor){const meta=this.meta(selection.tensor);if(meta)this.showTensor(meta);}}
   back(){const previous=this.history.pop();if(!previous){if(this.selection.kind!=='model')this.showModel();return;}const remaining=[...this.history];this.focus(previous);this.history=remaining;}
   setMicro(enabled:boolean,parameters?:{name:string;shape:number[]}[]){if(parameters)this.microParameters=parameters;const changed=this.micro!==enabled;this.micro=enabled;if(parameters){const indices=parameters.flatMap(p=>{const match=/layers\.(\d+)/.exec(p.name);return match?[Number(match[1])]:[];});if(indices.length)this.microLayers=Math.max(...indices)+1;}if(changed)this.showModel();}
   setFollow(enabled:boolean){this.autoFollow=enabled;}
+  setPlayback(playing:boolean,speed=.5){this.playing=playing;this.playbackSpeed=Math.max(.05,Math.min(5,speed));this.flowGroup.visible=playing&&this.micro;}
   setActiveStep(step:StepLike){
-    const previousLayer=this.followStep?.layer;this.followStep=step;this.clear(this.activeMarker);this.clear(this.overlay);
+    const previousLayer=this.followStep?.layer;this.followStep=step;this.clear(this.activeMarker);this.clear(this.overlay);this.clear(this.flowGroup);
     const layer=step.layer??-1,pos=this.layerCenters.get(layer)??(this.selection.kind==='model'?(layer<0?v(-1.1,.48,0):v(-1.1,10,0)):undefined);
     if(pos){
       const ring=new THREE.Mesh(new THREE.BoxGeometry(5.7,.12,3.35),new THREE.MeshBasicMaterial({color:step.phase==='backward'?0xe19bb1:step.phase==='update'?0xffcd8b:0x9affdf,transparent:true,opacity:.19,depthWrite:false}));ring.position.copy(pos);this.activeMarker.add(ring);
       const line=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(5.72,.14,3.38)),new THREE.LineBasicMaterial({color:step.phase==='backward'?0xe8a4c8:0xaeffea,transparent:true,opacity:.95}));line.position.copy(pos);this.activeMarker.add(line);this.activeMarker.visible=true;
-      if(this.autoFollow&&this.micro&&previousLayer!==layer)this.fly(v(11,pos.y+5.5,14),v(.2,Math.max(3,pos.y+.2),0),550);
+      if(this.autoFollow&&this.micro&&previousLayer!==layer){const drift=THREE.MathUtils.clamp((pos.y-4.35)*.075,-.3,.3);this.fly(v(18.5,13+drift,22.5),v(.1,4.35+drift,0),550);}
+      if(this.micro&&step.outputs?.[0]?.values.length){
+        const values=step.outputs[0].values.slice(0,16),finite=values.filter(Number.isFinite),limit=Math.max(1e-12,...finite.map(Math.abs)),direction=step.phase==='backward'?-1:1,next=this.layerCenters.get(layer+direction)??pos.clone().add(v(0,.7*direction,0));this.flowFrom.set(2.02,pos.y,1.77);this.flowTo.set(2.02,next.y,1.77);this.flowGroup.position.copy(this.flowFrom);this.flowStart=performance.now();
+        for(let i=0;i<values.length;i++){const cube=new THREE.Mesh(new THREE.BoxGeometry(.12,.055,.09),new THREE.MeshBasicMaterial({color:Number.isFinite(values[i])?this.heatColor(values[i],limit):new THREE.Color('#35424a'),toneMapped:false,fog:false}));cube.position.set(0,(i-(values.length-1)/2)*.062,0);this.flowGroup.add(cube);}
+        this.label('[micro] schematic flow',v(.18,.78,0),{color:'#8fd7c6',width:2.3,scale:.67,parent:this.flowGroup});this.flowGroup.visible=this.playing;
+      }
     }
     if(this.selection.kind==='tensor'||this.selection.kind==='cell')return;
     let matrix=step.matrix;
@@ -330,12 +386,20 @@ export class AnatomyScene {
     if(hit.object===this.cellMesh&&hit.instanceId!==undefined)return this.cellMesh.userData.cells?.[hit.instanceId] as {row:number;col:number}|undefined;
     if(hit.object===this.tilePlane&&hit.uv){const col=Math.min(tile.cols-1,Math.floor(hit.uv.x*tile.cols)),row=Math.min(tile.rows-1,Math.floor((1-hit.uv.y)*tile.rows));return {row:tile.row+row,col:tile.col+col};}
   }
+  private highlight(row?:number,col?:number){
+    const tile=this.tensorTile;if(!tile)return;this.highlightGroup.visible=true;const key=`${row}:${col}`;if(key===this.highlightKey)return;this.highlightKey=key;this.clear(this.highlightGroup);const cw=this.tileDimensions.width/tile.cols,ch=this.tileDimensions.height/tile.rows;
+    const band=(width:number,height:number,x:number,y:number)=>{const plane=new THREE.Mesh(new THREE.PlaneGeometry(width,height),new THREE.MeshBasicMaterial({color:0xffdea0,transparent:true,opacity:.19,depthWrite:false,side:THREE.DoubleSide,toneMapped:false,fog:false}));plane.position.set(x,y,.009);this.highlightGroup.add(plane);const points=[v(x-width/2,y-height/2,.011),v(x+width/2,y-height/2,.011),v(x+width/2,y+height/2,.011),v(x-width/2,y+height/2,.011),v(x-width/2,y-height/2,.011)];this.line(points,0xffe7b7,.75,this.highlightGroup);};
+    if(row!==undefined)band(this.tileDimensions.width,ch,0,this.tileOrigin.y+this.tileDimensions.height/2-(row-tile.row+.5)*ch);
+    if(col!==undefined)band(cw,this.tileDimensions.height,-this.tileDimensions.width/2+(col-tile.col+.5)*cw,this.tileOrigin.y);
+  }
   private onPointerMove(event:PointerEvent){
     const hit=this.hits(event)[0],mesh=hit?.object as HitMesh|undefined;
     if(this.hovered!==mesh){if(this.hovered&&this.hovered.material instanceof THREE.MeshStandardMaterial)this.hovered.material.emissiveIntensity=.045;this.hovered=mesh;if(mesh?.material instanceof THREE.MeshStandardMaterial)mesh.material.emissiveIntensity=.22;this.renderer.domElement.style.cursor=mesh?'pointer':'grab';}
-    const cell=hit?this.hitCell(hit):undefined;
-    if(cell&&this.tensorTile){const tile=this.tensorTile,value=tile.values[(cell.row-tile.row)*tile.cols+cell.col-tile.col];this.hoverElement.textContent=`[${tile.source}] w[${cell.row}][${cell.col}] = ${value.toPrecision(8)}\nMultiplies input feature ${cell.col}\nContributes to output feature ${cell.row}`;const rect=this.container.getBoundingClientRect();this.hoverElement.style.left=`${Math.min(rect.width-345,Math.max(5,event.clientX-rect.left+18))}px`;this.hoverElement.style.top=`${Math.min(rect.height-130,Math.max(5,event.clientY-rect.top+18))}px`;this.hoverElement.style.display='block';this.hoveredCell=`${cell.row}:${cell.col}`;}
-    else{this.hoverElement.style.display='none';this.hoveredCell=undefined;}
+    const cell=hit?this.hitCell(hit):undefined,axis=hit?.object.userData.axis as 'row'|'column'|undefined,tile=this.tensorTile;
+    if(axis&&hit?.uv&&tile&&this.tensorMeta){if(axis==='row'){const row=tile.row+Math.min(tile.rows-1,Math.floor((1-hit.uv.y)*tile.rows));this.highlight(row);this.hoverElement.textContent=`[${tile.source}] Row ${row}\n${axesMeaning(this.tensorMeta)}`;}else{const col=tile.col+Math.min(tile.cols-1,Math.floor(hit.uv.x*tile.cols));this.highlight(undefined,col);this.hoverElement.textContent=`[${tile.source}] Column ${col}\n${axesMeaning(this.tensorMeta)}`;}}
+    else if(cell&&tile&&this.tensorMeta){const value=tile.values[(cell.row-tile.row)*tile.cols+cell.col-tile.col],coordinate=this.tensorMeta.shape.length===1?`w[${cell.row}]`:`w[${cell.row}][${cell.col}]`;this.hoverElement.textContent=`[${tile.source}] ${coordinate} = ${value.toPrecision(8)}\n${cellMeaning(this.tensorMeta,cell.row,cell.col)}`;this.highlight(cell.row,this.tensorMeta.shape.length===1?undefined:cell.col);this.hoveredCell=`${cell.row}:${cell.col}`;}
+    else{this.hoverElement.style.display='none';this.highlightGroup.visible=false;this.hoveredCell=undefined;return;}
+    const rect=this.container.getBoundingClientRect();this.hoverElement.style.left=`${Math.min(rect.width-345,Math.max(5,event.clientX-rect.left+18))}px`;this.hoverElement.style.top=`${Math.min(rect.height-130,Math.max(5,event.clientY-rect.top+18))}px`;this.hoverElement.style.display='block';
   }
   private focusCell(row:number,col:number){const tile=this.tensorTile;if(!tile)return;const cw=this.tileDimensions.width/tile.cols,ch=this.tileDimensions.height/tile.rows,p=v(-this.tileDimensions.width/2+(col-tile.col+.5)*cw,this.tileOrigin.y+this.tileDimensions.height/2-(row-tile.row+.5)*ch,.002);this.fly(p.clone().add(v(0,0,Math.max(.015,Math.min(cw,ch)*18))),p,800);}
   private pick(event:MouseEvent,double:boolean){
@@ -348,9 +412,13 @@ export class AnatomyScene {
   private animate=()=>{
     if(this.disposed)return;this.frame=requestAnimationFrame(this.animate);const now=performance.now(),dt=now-this.lastFrame;this.lastFrame=now;
     if(this.tween){const t=Math.min(1,(now-this.tween.start)/this.tween.duration),e=1-Math.pow(1-t,3);this.camera.position.lerpVectors(this.tween.from,this.tween.to,e);this.controls.target.lerpVectors(this.tween.targetFrom,this.tween.targetTo,e);if(t===1)this.tween=undefined;}
-    this.controls.update();this.updateCellDetail(now);this.autoDetail(now);this.renderer.render(this.scene,this.camera);this.measuredFrames++;
+    this.controls.mouseButtons.LEFT=this.lod>=2?THREE.MOUSE.PAN:THREE.MOUSE.ROTATE;this.controls.update();
+    if(this.playing&&this.flowGroup.children.length){const progress=((now-this.flowStart)/(1400/this.playbackSpeed))%1,e=progress*progress*(3-2*progress);this.flowGroup.position.lerpVectors(this.flowFrom,this.flowTo,e);}
+    // Keep adequate depth precision at overview scale while allowing sub-centimeter cell views.
+    const near=THREE.MathUtils.clamp(this.camera.position.distanceTo(this.controls.target)*.001,.0001,.04);if(Math.abs(near-this.camera.near)>this.camera.near*.04){this.camera.near=near;this.camera.updateProjectionMatrix();}
+    this.updateCellDetail(now);this.autoDetail(now);this.streamAdjacentTile(now);this.renderer.render(this.scene,this.camera);this.measuredFrames++;
     this.slowFor=dt>20?this.slowFor+dt:0;if(this.slowFor>1000&&this.quality>.65){this.quality=.65;this.renderer.setPixelRatio(Math.min(window.devicePixelRatio,1));this.slowFor=0;}
     if(now-this.measuredAt>750){const fps=this.measuredFrames*1000/(now-this.measuredAt);this.callbacks.onStats?.({fps,renderer:'WebGL2',lod:this.lod,instances:this.cellMesh?.count??this.interactives.length});this.measuredAt=now;this.measuredFrames=0;}
   };
-  dispose(){this.disposed=true;cancelAnimationFrame(this.frame);this.observer.disconnect();this.controls.dispose();const canvas=this.renderer.domElement;canvas.removeEventListener('pointermove',this.pointerMove);canvas.removeEventListener('pointerdown',this.pointerDown);canvas.removeEventListener('pointerup',this.pointerUp);canvas.removeEventListener('dblclick',this.doubleClick);window.removeEventListener('keydown',this.keyDown);this.clear(this.content);this.clear(this.decor);this.clear(this.overlay);this.clear(this.activeMarker);this.clear(this.tileGroup);this.clear(this.cellLabels);this.clear(this.loadingGroup);this.renderer.dispose();canvas.remove();this.hoverElement.remove();}
+  dispose(){this.disposed=true;cancelAnimationFrame(this.frame);this.observer.disconnect();this.controls.dispose();const canvas=this.renderer.domElement;canvas.removeEventListener('pointermove',this.pointerMove);canvas.removeEventListener('pointerleave',this.pointerLeave);canvas.removeEventListener('pointerdown',this.pointerDown);canvas.removeEventListener('pointerup',this.pointerUp);canvas.removeEventListener('dblclick',this.doubleClick);window.removeEventListener('keydown',this.keyDown);this.clear(this.content);this.clear(this.decor);this.clear(this.overlay);this.clear(this.activeMarker);this.clear(this.tileGroup);this.clear(this.previousTileGroup);this.clear(this.cellLabels);this.clear(this.loadingGroup);this.clear(this.highlightGroup);this.clear(this.flowGroup);this.renderer.dispose();canvas.remove();this.hoverElement.remove();}
 }

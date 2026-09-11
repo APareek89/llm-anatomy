@@ -5,6 +5,21 @@ export const numeric=(n:number)=>!Number.isFinite(n)?(n<0?'−∞':'∞'):Math.a
 export const components:Record<string,{label:string;color:string}>={
   ffn:{label:'Feed-forward',color:'#c9b48a'},delta:{label:'DeltaNet',color:'#67d7bd'},attention:{label:'Full attention',color:'#ae9df2'},embedding:{label:'Embedding',color:'#78b9e0'},lm_head:{label:'Language head',color:'#78b9e0'},vision:{label:'Vision encoder',color:'#8c9cad'},mtp:{label:'Multi-token head',color:'#b8a3ca'},norm:{label:'Normalization',color:'#8994a3'},norms:{label:'Normalization',color:'#8994a3'}
 };
+export function cellMeaning(t:TensorMeta,row:number,col:number):string {
+  if(t.name.includes('embed_tokens'))return `Token ID ${row}, embedding coordinate ${col}. A lookup reads this feature directly; it is not a matrix multiply.`;
+  if(t.name.includes('lm_head'))return `Multiplies hidden feature ${col} to contribute to the score for vocabulary token ${row}.`;
+  if(t.name.includes('conv1d')){const kernel=t.shape.at(-1)!;return `Depthwise convolution channel ${row}, kernel position ${col}. Weights this same feature ${kernel-1-col} token positions in the past.`;}
+  if(t.name.includes('A_log')||t.name.includes('dt_bias'))return `Learned decay parameter for DeltaNet value head ${row}. This vector has no input-column axis.`;
+  if(t.shape.length===1)return `Learned scale for feature coordinate ${row}. This vector has no input-column axis.`;
+  return `Multiplies input feature ${col} and contributes to output feature ${row}.`;
+}
+export function axesMeaning(t:TensorMeta):string {
+  if(t.name.includes('embed_tokens'))return 'Each row is a token ID. Each column is a feature in its learned embedding.';
+  if(t.name.includes('lm_head'))return 'Each row scores one vocabulary token. Each column reads one hidden feature.';
+  if(t.name.includes('conv1d'))return 'Each row is a feature channel. Columns locate positions in its short causal convolution kernel.';
+  if(t.shape.length===1)return 'This is a parameter vector. Its coordinates index features or memory heads; it has no input-column axis.';
+  return 'Columns select input features. Rows contribute to output features.'+(t.shape.length>2?' Extra dimensions are flattened into columns for viewing.':'');
+}
 export function describeTensor(t:TensorMeta) {
   const n=t.name;
   let title='Learned parameter',what='A tensor of learned numbers that controls one part of the model.',why='Training adjusts these numbers to improve predictions.',math='The surrounding operation determines how these numbers transform a signal.',analogy='One precisely shaped part inside a larger machine.';

@@ -1,7 +1,7 @@
 import './ui/style.css';
 import {loadModelData,loadTile,loadPrefetchedTile,downloadStatus,computeStats,matrixShape,type ModelManifest,type TensorMeta,type WeightTile,type TileFile} from './data/hf';
 import {AnatomyScene,type Selection} from './scene/anatomy';
-import {esc,count,numeric,components,describeTensor,glossary,tourStops} from './ui/content';
+import {esc,count,numeric,components,describeTensor,cellMeaning,axesMeaning,glossary,tourStops} from './ui/content';
 import {Playback} from './playback/controller';
 import {ModelWorker} from './playback/client';
 import type {RecordedStep,TensorView} from './model/micro/tensor';
@@ -79,6 +79,7 @@ function renderExploreBottom(){
 async function refreshBudget(){const b=await downloadStatus();if($('budget'))$('budget').innerHTML=`<strong class="mono">${(b.used/1e6).toFixed(1)} / ${(b.limit/1e6).toFixed(0)} MB</strong><br>Data budget used<br><span class="dot"></span>Small tiles, fetched on demand`;}
 function selectObject(s:Selection){
   document.querySelector('.stage-caption')?.classList.toggle('hidden',s.kind!=='model');
+  const hint=document.querySelector('.stage-hint');if(hint)hint.textContent=s.kind==='tensor'||s.kind==='cell'?'DRAG TO PAN · SHIFT+DRAG TO ORBIT · SCROLL TO ZOOM · ESC TO GO BACK':'DRAG TO ORBIT · SCROLL TO ZOOM · DOUBLE-CLICK TO FOCUS · ESC TO GO BACK';
   if(s.kind==='cell'&&currentTile&&currentTile.name===s.tensor){const tile=currentTile;selection=s;renderBreadcrumb();renderInspector(s);renderTile(tile);showCellValue(tile,s.row??tile.row,s.col??tile.col);return;}
   selection=s;currentTile=undefined;requestGeneration++;
   $('source-pill').className=`tag ${mode==='explore'?'config':'micro'}`;$('source-pill').textContent=mode==='explore'?'[config] structure':'[micro] live computation';
@@ -93,9 +94,15 @@ function selectObject(s:Selection){
 function renderBreadcrumb(){
   const pieces=[`<button id="crumb-model">${mode==='explore'?'Qwen3.8–27B':'Micro-Qwen'}</button>`];
   if(selection.layer!==undefined)pieces.push(`<span>›</span><button id="crumb-layer">Layer ${selection.layer}</button>`);
-  if(selection.tensor)pieces.push(`<span>›</span><span class="current mono">${esc(selection.tensor.split('.').slice(-2).join('.'))}</span>`);
+  if(selection.tensor){
+    const name=selection.tensor,component=name.includes('self_attn')?'attention':name.includes('linear_attn')?'DeltaNet':name.includes('.mlp.')?'feed-forward':undefined;
+    if(component)pieces.push(`<span>›</span><span>${component}</span>`);
+    pieces.push(`<span>›</span><button id="crumb-tensor" class="current mono">${esc(name.split('.').slice(-2).join('.'))}</button>`);
+    const row=selection.kind==='cell'?selection.row:currentTile?.row??selection.row,dim=mode==='explore'?manifest.config.text_config.head_dim:micro?.config.headDim;
+    if(row!==undefined&&dim&&(/self_attn\.[qkv]_proj/.test(name)))pieces.push(`<span>›</span><span class="current">head ${Math.floor(row/(dim*(name.includes('q_proj')?2:1)))}</span>`);
+  }
   if(selection.kind==='cell')pieces.push(`<span>›</span><span class="current mono">(${selection.row}, ${selection.col})</span>`);
-  $('breadcrumb').innerHTML=pieces.join('');on('crumb-model',()=>scene.showModel());if($('crumb-layer'))on('crumb-layer',()=>scene.showLayer(selection.layer!));
+  $('breadcrumb').innerHTML=pieces.join('');on('crumb-model',()=>scene.showModel());if($('crumb-layer'))on('crumb-layer',()=>scene.showLayer(selection.layer!));if($('crumb-tensor'))on('crumb-tensor',()=>scene.showTensor(getMeta(selection.tensor!)!));
 }
 function inspectorTitle(eyebrow:string,tag='config'){ $('inspector-head').innerHTML=`<div class="spread"><span class="eyebrow">${eyebrow}</span><span class="tag ${tag}">[${tag}]</span></div>`; }
 function renderInspector(s:Selection){
@@ -113,10 +120,10 @@ function renderInspector(s:Selection){
   const meta=s.tensor?getMeta(s.tensor):undefined;if(!meta){inspectorTitle('TENSOR UNAVAILABLE');body.innerHTML='<p>This selection has no verified tensor metadata.</p>';return;}
   const d=describeTensor(meta),[rows,cols]=matrixShape(meta),isQ=meta.name.includes('self_attn.q_proj'),isK=/self_attn\.[kv]_proj/.test(meta.name),headDim=mode==='explore'?manifest.config.text_config.head_dim:micro!.config.headDim,heads=isQ?(mode==='explore'?manifest.config.text_config.num_attention_heads:micro!.config.queryHeads):isK?(mode==='explore'?manifest.config.text_config.num_key_value_heads:micro!.config.kvHeads):0;
   inspectorTitle(s.kind==='cell'?'ONE LEARNED NUMBER':'TENSOR INSPECTOR',source);
-  body.innerHTML=`<h2>${esc(d.title)}</h2><div class="tensor-name mono">${esc(meta.name)}</div><p style="margin-top:12px">${esc(d.what)}</p><div class="info-grid"><div><small>Shape · output × input</small><strong>${meta.shape.join(' × ')}</strong></div><div><small>Storage dtype</small><strong>${meta.dtype}</strong></div><div><small>Parameters</small><strong>${count(meta.params)}</strong></div><div><small>Tensor storage</small><strong>${(meta.bytes/1e6).toFixed(3)} MB</strong></div></div><div id="cell-value"></div><div id="tile-state"><div class="banner">Not loaded — click to fetch.<br><span class="tiny">No values are invented for this tensor.</span></div></div>
+  body.innerHTML=`<h2>${esc(d.title)}</h2><div class="tensor-name mono">${esc(meta.name)}</div><p style="margin-top:12px">${esc(d.what)}</p><div class="info-grid"><div><small>Stored shape</small><strong>${meta.shape.join(' × ')}</strong></div><div><small>Storage dtype</small><strong>${meta.dtype}</strong></div><div><small>Parameters</small><strong>${count(meta.params)}</strong></div><div><small>Tensor storage</small><strong>${(meta.bytes/1e6).toFixed(3)} MB</strong></div></div><div id="cell-value"></div><div id="tile-state"><div class="banner">Not loaded — click to fetch.<br><span class="tiny">No values are invented for this tensor.</span></div></div>
     ${heads?`<h3>${isQ?'Query + gate':'Key / value'} head bands</h3><p class="tiny">${isQ?`${heads} heads. Each band has ${headDim} query rows, then ${headDim} output-gate rows.`:`${heads} heads. ${headDim} rows per head; each is shared by several queries.`}</p><div class="head-bands">${Array.from({length:heads},(_,h)=>`<button data-head="${h}" title="Inspect head ${h}">${h}</button>`).join('')}</div>`:''}
-    <div class="tile-controls"><label>Output row<input id="tile-row" type="number" min="0" max="${rows-1}" value="${s.row??0}" step="256"></label><label>Input column<input id="tile-col" type="number" min="0" max="${cols-1}" value="${s.col??0}" step="256"></label><button id="fetch-tile" class="primary">${mode==='explore'?'Fetch real tile':'Read micro weights'} ${icon('arrow')}</button></div><div id="sparse-rows"></div>
-    <h3>Why it exists</h3><p>${esc(d.why)}</p><div class="math">${esc(d.math)}</div><h3>Think of it as…</h3><p>${esc(d.analogy)}</p><p class="tiny" style="margin-top:14px">Columns select input features. Rows contribute to output features. ${meta.shape.length>2?'Extra tensor dimensions are flattened into columns for viewing.':''}</p>`;
+    <div class="tile-controls"><label>Row / coordinate<input id="tile-row" type="number" min="0" max="${rows-1}" value="${s.row??0}" step="256"></label><label>Column / kernel position<input id="tile-col" type="number" min="0" max="${cols-1}" value="${s.col??0}" step="256"></label><button id="fetch-tile" class="primary">${mode==='explore'?'Fetch real tile':'Read micro weights'} ${icon('arrow')}</button></div><div id="sparse-rows"></div>
+    <h3>Why it exists</h3><p>${esc(d.why)}</p><div class="math">${esc(d.math)}</div><h3>Think of it as…</h3><p>${esc(d.analogy)}</p><p class="tiny" style="margin-top:14px">${esc(axesMeaning(meta))}</p>`;
   on('fetch-tile',()=>void (mode==='explore'?fetchCurrentTile():fetchMicroTile(meta)).catch(fail));
   body.querySelectorAll<HTMLButtonElement>('[data-head]').forEach(b=>b.onclick=()=>{const r=Number(b.dataset.head)*headDim*(isQ?2:1);$<HTMLInputElement>('tile-row').value=String(r);void(mode==='explore'?fetchCurrentTile(r,0):fetchMicroTile(meta)).catch(fail);body.querySelectorAll('[data-head]').forEach(x=>x.classList.remove('active'));b.classList.add('active');});
   const sparse=mode==='explore'?manifest.tiles.filter(t=>t.name===meta.name&&t.rows===1):[];
@@ -137,18 +144,19 @@ async function fetchMicroTile(meta:TensorMeta){
 }
 function renderTile(tile:WeightTile){
   if(!$('tile-state'))return;const s=tile.stats,tag=tile.source;
+  renderBreadcrumb();
   $('source-pill').className=`tag ${tag}`;$('source-pill').textContent=`[${tag}] weight values`;
   $('tile-state').innerHTML=`<div class="spread"><span class="tag ${tag}">[${tag}] loaded values</span><span class="tiny muted">${tile.rows} × ${tile.cols}</span></div><canvas id="tile-preview" class="heatmap-preview" width="256" height="160" aria-label="Loaded weight heatmap"></canvas><p class="tiny">Rows ${tile.row}–${tile.row+tile.rows-1} · columns ${tile.col}–${tile.col+tile.cols-1}<br>${tile.source==='real'?esc(tile.origin):'Micro worker values · Float32 display copy'}</p><div class="stats-grid"><div><small>Mean</small><strong>${numeric(s.mean)}</strong></div><div><small>Std. deviation</small><strong>${numeric(s.std)}</strong></div><div><small>Minimum</small><strong>${numeric(s.min)}</strong></div><div><small>Maximum</small><strong>${numeric(s.max)}</strong></div><div><small>Near zero · |w| &lt; .001</small><strong>${(s.nearZeroFraction*100).toFixed(2)}%</strong></div><div><small>Values in this tile</small><strong>${s.count.toLocaleString()}</strong></div></div><p class="tiny muted">Statistics describe this loaded tile only. Symmetric colour scale uses its 1st / 99th percentiles.</p>`;
   drawMatrix($<HTMLCanvasElement>('tile-preview'),tile.values,[tile.rows,tile.cols]);
   if($('tile-row'))$<HTMLInputElement>('tile-row').value=String(tile.row);if($('tile-col'))$<HTMLInputElement>('tile-col').value=String(tile.col);
   const preview=$<HTMLCanvasElement>('tile-preview');preview.onmousemove=e=>{const rect=preview.getBoundingClientRect(),row=tile.row+Math.min(tile.rows-1,Math.floor((e.clientY-rect.top)/rect.height*tile.rows)),col=tile.col+Math.min(tile.cols-1,Math.floor((e.clientX-rect.left)/rect.width*tile.cols));showCellValue(tile,row,col);};
 }
-function showCellValue(tile:WeightTile,row:number,col:number){const index=(row-tile.row)*tile.cols+col-tile.col,value=tile.values[index];if(value===undefined)return;const node=$('cell-value');if(node)node.innerHTML=`<div class="callout"><span class="tag ${tile.source}">[${tile.source}]</span><div class="mono" style="font-size:16px;margin:9px 0">w[${row}, ${col}] = ${numeric(value)}</div>Multiplies input feature <strong>${col}</strong> and contributes to output feature <strong>${row}</strong>.</div>`;}
+function showCellValue(tile:WeightTile,row:number,col:number){const index=(row-tile.row)*tile.cols+col-tile.col,value=tile.values[index];if(value===undefined)return;const node=$('cell-value'),meta=getMeta(tile.name);if(node&&meta)node.innerHTML=`<div class="callout"><span class="tag ${tile.source}">[${tile.source}]</span><div class="mono" style="font-size:16px;margin:9px 0">w[${row}, ${col}] = ${numeric(value)}</div>${esc(cellMeaning(meta,row,col))}</div>`;}
 function drawMatrix(canvas:HTMLCanvasElement|undefined,values:ArrayLike<number>,shape:number[],mask?:boolean[],scale?:number){
   if(!canvas)return;const ctx=canvas.getContext('2d')!,rows=shape.length>1?shape[0]:1,cols=shape.length>1?shape.slice(1).reduce((a,b)=>a*b,1):shape[0];
   const finite=Array.from(values).filter(Number.isFinite).sort((a,b)=>a-b),max=scale??Math.max(1e-9,Math.abs(finite[Math.floor(finite.length*.01)]??0),Math.abs(finite[Math.floor(finite.length*.99)]??0));
   const w=canvas.width,h=canvas.height;ctx.fillStyle='#0c141c';ctx.fillRect(0,0,w,h);const rr=Math.min(rows,256),cc=Math.min(cols,256),cw=w/cc,ch=h/rr;
-  for(let r=0;r<rr;r++)for(let c=0;c<cc;c++){const i=Math.floor(r*rows/rr)*cols+Math.floor(c*cols/cc),x=values[i];if(mask?.[i]||!Number.isFinite(x)){ctx.fillStyle='#27303a';ctx.fillRect(c*cw,r*ch,cw+.3,ch+.3);if(cw>20&&ch>20){ctx.fillStyle='#647180';ctx.font='9px monospace';ctx.textAlign='center';ctx.fillText('×',(c+.5)*cw,(r+.5)*ch+3);}continue;}const a=Math.min(1,Math.abs(x)/max);ctx.fillStyle=x>=0?`rgb(${Math.round(20+a*78)},${Math.round(32+a*174)},${Math.round(43+a*137)})`:`rgb(${Math.round(25+a*139)},${Math.round(30+a*109)},${Math.round(45+a*174)})`;ctx.fillRect(c*cw,r*ch,Math.max(1,cw-.6),Math.max(1,ch-.6));if(cw>45&&ch>23){ctx.fillStyle=a>.5?'#0b1720':'#cad7df';ctx.textAlign='center';ctx.font='9px monospace';ctx.fillText(x.toFixed(3),(c+.5)*cw,(r+.5)*ch+3);}}
+  for(let r=0;r<rr;r++)for(let c=0;c<cc;c++){const i=Math.floor(r*rows/rr)*cols+Math.floor(c*cols/cc),x=values[i];if(mask?.[i]||!Number.isFinite(x)){ctx.fillStyle='#27303a';ctx.fillRect(c*cw,r*ch,cw+.3,ch+.3);if(cw>20&&ch>20){ctx.fillStyle='#647180';ctx.font='16px monospace';ctx.textAlign='center';ctx.fillText('×',(c+.5)*cw,(r+.5)*ch+4);}continue;}const a=Math.min(1,Math.abs(x)/max);ctx.fillStyle=x>=0?`rgb(${Math.round(20+a*78)},${Math.round(32+a*174)},${Math.round(43+a*137)})`:`rgb(${Math.round(25+a*139)},${Math.round(30+a*109)},${Math.round(45+a*174)})`;ctx.fillRect(c*cw,r*ch,Math.max(1,cw-.6),Math.max(1,ch-.6));if(cw>45&&ch>23){ctx.fillStyle=a>.5?'#0b1720':'#cad7df';ctx.textAlign='center';ctx.font=`${Math.max(12,Math.min(22,Math.min(cw,ch)*.3))}px monospace`;ctx.fillText(x.toFixed(3),(c+.5)*cw,(r+.5)*ch+5);}}
 }
 
 async function setMode(next:typeof mode){
@@ -163,6 +171,7 @@ async function setMode(next:typeof mode){
   if(mode==='inference')await runInference(false);else {playback.load([]);inspectorTitle('CALCULATION LENS','micro');$('inspector-body').innerHTML='<h2>Learning, made visible.</h2><p>Run one animated step to see the batch, forward pass, loss, gradients, and exact weight updates.</p><div class="callout">Gradients trace the loss backward through its dependencies. The optimizer uses them to make a small change to each learned weight.</div><p>The starter has already trained for 300 steps. Reset weights to watch learning from the same seed.</p><button id="start-one" class="primary" style="width:100%;margin-top:18px">Animate one training step</button>';on('start-one',()=>void train(1,true).catch(fail));}
 }
 function renderSimulationBottom(){
+  scene.setFollow(true);
   const training=mode==='training';
   $('bottom-panel').innerHTML=`<div class="sim-settings"><label class="prompt-field">${training?'Probe prompt':'Prompt'}<input id="prompt" value="${esc(traceResult?.prompt??'the cat sat on')}" aria-label="Simulation prompt"></label>
     ${training?'<label>Learning rate<input id="learning-rate" class="small-input" type="number" value="0.05" min="0.0001" max="1" step="0.01"></label><label>Batch<input id="batch-size" class="small-input" type="number" value="4" min="1" max="16"></label><button id="train-one" class="primary">Animate 1 step</button><label>Fast steps<input id="train-count" class="small-input" type="number" value="300" min="1" max="10000"></label><button id="train-fast">Train 300 fast</button><button id="stop-training" class="hidden">Stop</button><button id="reset-weights" title="Reset to seed 42">Reset weights</button>':'<label>Temperature<input id="temperature" class="small-input" type="number" value="0" min="0" max="3" step="0.1"></label><button id="run-inference" class="primary">Run forward pass '+icon('arrow')+'</button><button id="next-token" title="Append the chosen token and run another pass">Append next token</button><button id="open-tokenizer">Tokenizer</button>'}
@@ -197,6 +206,7 @@ async function runInference(autoPlay:boolean){
   finally{busy=false;if(button){button.disabled=false;button.innerHTML=`Run forward pass ${icon('arrow')}`;}}
 }
 function updatePlayback(step:RecordedStep|undefined,index:number,total:number,playing:boolean){
+  scene?.setPlayback(playing,playback.speed);
   if(!$('scrubber'))return;const scrub=$<HTMLInputElement>('scrubber');scrub.max=String(Math.max(0,total-1));scrub.value=String(index);$('step-label').textContent=step?`${step.phase==='forward'?'→':step.phase==='backward'?'←':'↻'} ${step.name}`:'Prepare a recorded calculation';$('step-number').textContent=total?`${index+1} / ${total}`:'0 / 0';$('play').innerHTML=icon(playing?'pause':'play');$('play').setAttribute('aria-label',playing?'Pause playback':'Play playback');
   if(step&&mode!=='explore'){renderLens(step);scene.setActiveStep(step);$('annotation').classList.remove('hidden');$('annotation').innerHTML=`${step.layer>=0&&step.layer<micro!.config.layers?`Layer ${step.layer} · `:''}${esc(step.name)} <span class="tag micro">[micro]</span>`;}
 }
@@ -285,7 +295,7 @@ async function runTourStop(){
 }
 async function boot(){
   manifest=await loadModelData();shell();renderOverviewSidebar();renderExploreBottom();
-  scene=new AnatomyScene($('stage'),manifest,{onSelect:selectObject,onStats:s=>{$('status-right').textContent=`${s.renderer.toUpperCase()} · ${Math.round(s.fps)} FPS · ${s.instances.toLocaleString()} OBJECTS / CELLS`;$('lod-pill').textContent=`LOD ${s.lod} · ${['model','layer','tensor','cells'][s.lod]??'detail'}`;}});renderInspector({kind:'model'});
+  scene=new AnatomyScene($('stage'),manifest,{onSelect:selectObject,onTileRequest:async(name,row,col)=>{if(mode!=='explore'||selection.tensor!==name)throw new Error('The selected tensor changed.');await fetchCurrentTile(row,col);},onStats:s=>{$('status-right').textContent=`${s.renderer.toUpperCase()} · ${Math.round(s.fps)} FPS · ${s.instances.toLocaleString()} OBJECTS / CELLS`;$('lod-pill').textContent=`LOD ${s.lod} · ${['model','layer','tensor','cells'][s.lod]??'detail'}`;}});renderInspector({kind:'model'});
   microReady=(async()=>{try{micro=await worker.call('init',{checkpointUrl:`${import.meta.env.BASE_URL}data/micro-checkpoint.json`});const benchmark=await fetch(`${import.meta.env.BASE_URL}data/micro-benchmark.json`).then(r=>r.json());lossHistory=benchmark.history??[];evaluation=benchmark.final??benchmark.after;}
     catch(error){console.warn('Starter unavailable; initialized seed42',error);micro=await worker.call('init',{seed:42});evaluation=(await worker.call('evaluate')).result;toast('The trained starter was unavailable. Micro-Qwen is ready with seed 42 random weights.');}})();
   // Deliberately expose only read-only runtime telemetry for reproducible browser QA.
