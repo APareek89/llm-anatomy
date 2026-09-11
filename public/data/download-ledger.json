@@ -1,0 +1,839 @@
+{
+  "revision": "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0",
+  "limitBytes": 150000000,
+  "downloadedBytes": 65019823,
+  "requests": [
+    {
+      "resource": "HF API model metadata + pinned config.json + model.safetensors.index.json (initial retrieval)",
+      "bytes": 140847,
+      "time": "2026-09-11T11:18:17.927Z"
+    },
+    {
+      "resource": "model-00018-of-00018.safetensors",
+      "bytes": 8,
+      "time": "2026-09-11T11:18:19.136Z",
+      "range": "bytes=0-7"
+    },
+    {
+      "resource": "model-00018-of-00018.safetensors",
+      "bytes": 1752,
+      "time": "2026-09-11T11:18:19.918Z",
+      "range": "bytes=8-1759"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 8,
+      "time": "2026-09-11T11:18:20.755Z",
+      "range": "bytes=0-7"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 144,
+      "time": "2026-09-11T11:18:21.598Z",
+      "range": "bytes=8-151"
+    },
+    {
+      "resource": "model-00001-of-00018.safetensors",
+      "bytes": 8,
+      "time": "2026-09-11T11:18:22.377Z",
+      "range": "bytes=0-7"
+    },
+    {
+      "resource": "model-00001-of-00018.safetensors",
+      "bytes": 45392,
+      "time": "2026-09-11T11:18:23.301Z",
+      "range": "bytes=8-45399"
+    },
+    {
+      "resource": "model-00004-of-00018.safetensors",
+      "bytes": 8,
+      "time": "2026-09-11T11:18:24.128Z",
+      "range": "bytes=0-7"
+    },
+    {
+      "resource": "model-00004-of-00018.safetensors",
+      "bytes": 9048,
+      "time": "2026-09-11T11:18:24.941Z",
+      "range": "bytes=8-9055"
+    },
+    {
+      "resource": "model-00005-of-00018.safetensors",
+      "bytes": 8,
+      "time": "2026-09-11T11:18:25.756Z",
+      "range": "bytes=0-7"
+    },
+    {
+      "resource": "model-00005-of-00018.safetensors",
+      "bytes": 4816,
+      "time": "2026-09-11T11:18:26.603Z",
+      "range": "bytes=8-4823"
+    },
+    {
+      "resource": "model-00006-of-00018.safetensors",
+      "bytes": 8,
+      "time": "2026-09-11T11:18:27.432Z",
+      "range": "bytes=0-7"
+    },
+    {
+      "resource": "model-00006-of-00018.safetensors",
+      "bytes": 9944,
+      "time": "2026-09-11T11:18:28.267Z",
+      "range": "bytes=8-9951"
+    },
+    {
+      "resource": "model-00007-of-00018.safetensors",
+      "bytes": 8,
+      "time": "2026-09-11T11:18:29.064Z",
+      "range": "bytes=0-7"
+    },
+    {
+      "resource": "model-00007-of-00018.safetensors",
+      "bytes": 3944,
+      "time": "2026-09-11T11:18:29.862Z",
+      "range": "bytes=8-3951"
+    },
+    {
+      "resource": "model-00008-of-00018.safetensors",
+      "bytes": 8,
+      "time": "2026-09-11T11:18:30.661Z",
+      "range": "bytes=0-7"
+    },
+    {
+      "resource": "model-00008-of-00018.safetensors",
+      "bytes": 9944,
+      "time": "2026-09-11T11:18:31.497Z",
+      "range": "bytes=8-9951"
+    },
+    {
+      "resource": "model-00009-of-00018.safetensors",
+      "bytes": 8,
+      "time": "2026-09-11T11:18:32.304Z",
+      "range": "bytes=0-7"
+    },
+    {
+      "resource": "model-00009-of-00018.safetensors",
+      "bytes": 3944,
+      "time": "2026-09-11T11:18:33.113Z",
+      "range": "bytes=8-3951"
+    },
+    {
+      "resource": "model-00010-of-00018.safetensors",
+      "bytes": 8,
+      "time": "2026-09-11T11:18:33.911Z",
+      "range": "bytes=0-7"
+    },
+    {
+      "resource": "model-00010-of-00018.safetensors",
+      "bytes": 9944,
+      "time": "2026-09-11T11:18:34.708Z",
+      "range": "bytes=8-9951"
+    },
+    {
+      "resource": "model-00011-of-00018.safetensors",
+      "bytes": 8,
+      "time": "2026-09-11T11:18:35.535Z",
+      "range": "bytes=0-7"
+    },
+    {
+      "resource": "model-00011-of-00018.safetensors",
+      "bytes": 3944,
+      "time": "2026-09-11T11:18:36.360Z",
+      "range": "bytes=8-3951"
+    },
+    {
+      "resource": "model-00002-of-00018.safetensors",
+      "bytes": 8,
+      "time": "2026-09-11T11:18:37.162Z",
+      "range": "bytes=0-7"
+    },
+    {
+      "resource": "model-00002-of-00018.safetensors",
+      "bytes": 6144,
+      "time": "2026-09-11T11:18:37.960Z",
+      "range": "bytes=8-6151"
+    },
+    {
+      "resource": "model-00012-of-00018.safetensors",
+      "bytes": 8,
+      "time": "2026-09-11T11:18:38.780Z",
+      "range": "bytes=0-7"
+    },
+    {
+      "resource": "model-00012-of-00018.safetensors",
+      "bytes": 9944,
+      "time": "2026-09-11T11:18:39.571Z",
+      "range": "bytes=8-9951"
+    },
+    {
+      "resource": "model-00013-of-00018.safetensors",
+      "bytes": 8,
+      "time": "2026-09-11T11:18:40.404Z",
+      "range": "bytes=0-7"
+    },
+    {
+      "resource": "model-00013-of-00018.safetensors",
+      "bytes": 3944,
+      "time": "2026-09-11T11:18:41.267Z",
+      "range": "bytes=8-3951"
+    },
+    {
+      "resource": "model-00014-of-00018.safetensors",
+      "bytes": 8,
+      "time": "2026-09-11T11:18:42.158Z",
+      "range": "bytes=0-7"
+    },
+    {
+      "resource": "model-00014-of-00018.safetensors",
+      "bytes": 9944,
+      "time": "2026-09-11T11:18:42.969Z",
+      "range": "bytes=8-9951"
+    },
+    {
+      "resource": "model-00015-of-00018.safetensors",
+      "bytes": 8,
+      "time": "2026-09-11T11:18:43.785Z",
+      "range": "bytes=0-7"
+    },
+    {
+      "resource": "model-00015-of-00018.safetensors",
+      "bytes": 3944,
+      "time": "2026-09-11T11:18:44.612Z",
+      "range": "bytes=8-3951"
+    },
+    {
+      "resource": "model-00016-of-00018.safetensors",
+      "bytes": 8,
+      "time": "2026-09-11T11:18:45.446Z",
+      "range": "bytes=0-7"
+    },
+    {
+      "resource": "model-00016-of-00018.safetensors",
+      "bytes": 10048,
+      "time": "2026-09-11T11:18:46.306Z",
+      "range": "bytes=8-10055"
+    },
+    {
+      "resource": "model-00017-of-00018.safetensors",
+      "bytes": 8,
+      "time": "2026-09-11T11:18:47.102Z",
+      "range": "bytes=0-7"
+    },
+    {
+      "resource": "model-00017-of-00018.safetensors",
+      "bytes": 3944,
+      "time": "2026-09-11T11:18:47.921Z",
+      "range": "bytes=8-3951"
+    },
+    {
+      "resource": "tokenizer.json",
+      "bytes": 12809320,
+      "time": "2026-09-11T11:18:54.730Z"
+    },
+    {
+      "resource": "model-00001-of-00018.safetensors",
+      "bytes": 512,
+      "time": "2026-09-11T11:19:54.692Z",
+      "range": "bytes=45400-45911"
+    },
+    {
+      "resource": "model-00001-of-00018.safetensors",
+      "bytes": 96,
+      "time": "2026-09-11T11:19:55.480Z",
+      "range": "bytes=55640-55735"
+    },
+    {
+      "resource": "model-00001-of-00018.safetensors",
+      "bytes": 2048,
+      "time": "2026-09-11T11:19:56.275Z",
+      "range": "bytes=55736-57783"
+    },
+    {
+      "resource": "model-00001-of-00018.safetensors",
+      "bytes": 96,
+      "time": "2026-09-11T11:19:57.095Z",
+      "range": "bytes=137656-137751"
+    },
+    {
+      "resource": "model-00001-of-00018.safetensors",
+      "bytes": 481792,
+      "time": "2026-09-11T11:19:58.280Z",
+      "range": "bytes=137752-619543"
+    },
+    {
+      "resource": "model-00001-of-00018.safetensors",
+      "bytes": 481792,
+      "time": "2026-09-11T11:19:59.162Z",
+      "range": "bytes=629272-1111063"
+    },
+    {
+      "resource": "model-00001-of-00018.safetensors",
+      "bytes": 2611712,
+      "time": "2026-09-11T11:20:00.159Z",
+      "range": "bytes=1120792-3732503"
+    },
+    {
+      "resource": "model-00001-of-00018.safetensors",
+      "bytes": 2611712,
+      "time": "2026-09-11T11:20:01.144Z",
+      "range": "bytes=105978392-108590103"
+    },
+    {
+      "resource": "model-00001-of-00018.safetensors",
+      "bytes": 256,
+      "time": "2026-09-11T11:20:02.004Z",
+      "range": "bytes=168892952-168893207"
+    },
+    {
+      "resource": "model-00001-of-00018.safetensors",
+      "bytes": 3133952,
+      "time": "2026-09-11T11:20:03.022Z",
+      "range": "bytes=168893208-172027159"
+    },
+    {
+      "resource": "model-00001-of-00018.safetensors",
+      "bytes": 8878592,
+      "time": "2026-09-11T11:20:04.502Z",
+      "range": "bytes=231807768-240686359"
+    },
+    {
+      "resource": "model-00001-of-00018.safetensors",
+      "bytes": 2611712,
+      "time": "2026-09-11T11:20:05.440Z",
+      "range": "bytes=410065688-412677399"
+    },
+    {
+      "resource": "model-00001-of-00018.safetensors",
+      "bytes": 2611712,
+      "time": "2026-09-11T11:20:06.378Z",
+      "range": "bytes=588323608-590935319"
+    },
+    {
+      "resource": "model-00001-of-00018.safetensors",
+      "bytes": 512,
+      "time": "2026-09-11T11:20:07.213Z",
+      "range": "bytes=766581528-766582039"
+    },
+    {
+      "resource": "model-00001-of-00018.safetensors",
+      "bytes": 512,
+      "time": "2026-09-11T11:20:08.024Z",
+      "range": "bytes=2299684504-2299685015"
+    },
+    {
+      "resource": "model-00001-of-00018.safetensors",
+      "bytes": 8878592,
+      "time": "2026-09-11T11:20:09.693Z",
+      "range": "bytes=2299694744-2308573335"
+    },
+    {
+      "resource": "model-00001-of-00018.safetensors",
+      "bytes": 2611712,
+      "time": "2026-09-11T11:20:10.627Z",
+      "range": "bytes=2477952664-2480564375"
+    },
+    {
+      "resource": "model-00001-of-00018.safetensors",
+      "bytes": 2611712,
+      "time": "2026-09-11T11:20:11.766Z",
+      "range": "bytes=2656210584-2658822295"
+    },
+    {
+      "resource": "model-00001-of-00018.safetensors",
+      "bytes": 512,
+      "time": "2026-09-11T11:20:12.625Z",
+      "range": "bytes=2834468504-2834469015"
+    },
+    {
+      "resource": "model-00001-of-00018.safetensors",
+      "bytes": 512,
+      "time": "2026-09-11T11:20:13.436Z",
+      "range": "bytes=2834478744-2834479255"
+    },
+    {
+      "resource": "model-00001-of-00018.safetensors",
+      "bytes": 2621440,
+      "time": "2026-09-11T11:20:14.348Z",
+      "range": "bytes=2834479256-2837100695"
+    },
+    {
+      "resource": "model-00001-of-00018.safetensors",
+      "bytes": 3133952,
+      "time": "2026-09-11T11:20:15.707Z",
+      "range": "bytes=2844965016-2848098967"
+    },
+    {
+      "resource": "model-00001-of-00018.safetensors",
+      "bytes": 512,
+      "time": "2026-09-11T11:20:16.574Z",
+      "range": "bytes=2907879576-2907880087"
+    },
+    {
+      "resource": "model-00001-of-00018.safetensors",
+      "bytes": 5242880,
+      "time": "2026-09-11T11:20:17.766Z",
+      "range": "bytes=2907880088-2913122967"
+    },
+    {
+      "resource": "model-00001-of-00018.safetensors",
+      "bytes": 2611712,
+      "time": "2026-09-11T11:20:19.365Z",
+      "range": "bytes=3033709208-3036320919"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:20:20.217Z",
+      "range": "bytes=17602712-17612951"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:20:21.026Z",
+      "range": "bytes=81848472-81858711"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:20:21.842Z",
+      "range": "bytes=75141272-75151511"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:20:22.629Z",
+      "range": "bytes=3922072-3932311"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:20:23.445Z",
+      "range": "bytes=2857112-2867351"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:20:24.260Z",
+      "range": "bytes=54722712-54732951"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:20:25.052Z",
+      "range": "bytes=2432061592-2432071831"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:20:25.894Z",
+      "range": "bytes=456714392-456724631"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:20:26.712Z",
+      "range": "bytes=1369088152-1369098391"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:20:27.536Z",
+      "range": "bytes=196147352-196157591"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:20:28.361Z",
+      "range": "bytes=519270552-519280791"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:20:29.233Z",
+      "range": "bytes=473139352-473149591"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:20:30.055Z",
+      "range": "bytes=1834270872-1834281111"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:20:30.869Z",
+      "range": "bytes=2112133272-2112143511"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:20:31.675Z",
+      "range": "bytes=1042452632-1042462871"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:20:32.476Z",
+      "range": "bytes=484976792-484987031"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:20:33.285Z",
+      "range": "bytes=1102110872-1102121111"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:20:34.105Z",
+      "range": "bytes=615659672-615669911"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:20:34.927Z",
+      "range": "bytes=986951832-986962071"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:20:35.772Z",
+      "range": "bytes=371640472-371650711"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:20:36.633Z",
+      "range": "bytes=168755352-168765591"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:20:37.426Z",
+      "range": "bytes=1211750552-1211760791"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:20:38.241Z",
+      "range": "bytes=1616302232-1616312471"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:20:39.063Z",
+      "range": "bytes=1449093272-1449103511"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:20:39.857Z",
+      "range": "bytes=1980702872-1980713111"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:20:40.661Z",
+      "range": "bytes=440105112-440115351"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:20:41.466Z",
+      "range": "bytes=461107352-461117591"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:20:42.298Z",
+      "range": "bytes=288491672-288501911"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:20:43.096Z",
+      "range": "bytes=749813912-749824151"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:20:43.919Z",
+      "range": "bytes=230103192-230113431"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:20:44.744Z",
+      "range": "bytes=1500713112-1500723351"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:20:45.980Z",
+      "range": "bytes=166635672-166645911"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:20:46.800Z",
+      "range": "bytes=109404312-109414551"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:20:47.594Z",
+      "range": "bytes=623687832-623698071"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:20:48.389Z",
+      "range": "bytes=2402037912-2402048151"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:20:49.210Z",
+      "range": "bytes=506808472-506818711"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:20:50.051Z",
+      "range": "bytes=1459323032-1459333271"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:20:50.878Z",
+      "range": "bytes=236738712-236748951"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:20:51.693Z",
+      "range": "bytes=1828147352-1828157591"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:20:52.545Z",
+      "range": "bytes=1492510872-1492521111"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:20:53.379Z",
+      "range": "bytes=2497945752-2497955991"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:20:54.197Z",
+      "range": "bytes=385218712-385228951"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:20:54.992Z",
+      "range": "bytes=811888792-811899031"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:20:55.825Z",
+      "range": "bytes=2363525272-2363535511"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:20:56.679Z",
+      "range": "bytes=310231192-310241431"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:20:57.478Z",
+      "range": "bytes=204052632-204062871"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:20:58.312Z",
+      "range": "bytes=2184417432-2184427671"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:20:59.150Z",
+      "range": "bytes=970270872-970281111"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:20:59.958Z",
+      "range": "bytes=2278154392-2278164631"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:21:00.759Z",
+      "range": "bytes=1895250072-1895260311"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:21:01.576Z",
+      "range": "bytes=1767157912-1767168151"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:21:02.406Z",
+      "range": "bytes=185845912-185856151"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:21:03.273Z",
+      "range": "bytes=637010072-637020311"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:21:04.080Z",
+      "range": "bytes=2155796632-2155806871"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:21:04.916Z",
+      "range": "bytes=1347932312-1347942551"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:21:05.735Z",
+      "range": "bytes=655124632-655134871"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:21:06.509Z",
+      "range": "bytes=1306009752-1306019991"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:21:07.326Z",
+      "range": "bytes=2264955032-2264965271"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:21:08.121Z",
+      "range": "bytes=1702686872-1702697111"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:21:08.950Z",
+      "range": "bytes=1843333272-1843343511"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:21:09.907Z",
+      "range": "bytes=630866072-630876311"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:21:10.718Z",
+      "range": "bytes=545003672-545013911"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:21:11.538Z",
+      "range": "bytes=246681752-246691991"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:21:12.373Z",
+      "range": "bytes=961259672-961269911"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:21:13.241Z",
+      "range": "bytes=1573806232-1573816471"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:21:14.022Z",
+      "range": "bytes=555858072-555868311"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:21:14.836Z",
+      "range": "bytes=1976381592-1976391831"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:21:15.673Z",
+      "range": "bytes=373442712-373452951"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:21:16.555Z",
+      "range": "bytes=2514780312-2514790551"
+    },
+    {
+      "resource": "model-00003-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:21:17.348Z",
+      "range": "bytes=2187417752-2187427991"
+    },
+    {
+      "resource": "model-00018-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:21:18.189Z",
+      "range": "bytes=17604320-17614559"
+    },
+    {
+      "resource": "model-00018-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:21:18.996Z",
+      "range": "bytes=81850080-81860319"
+    },
+    {
+      "resource": "model-00018-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:21:19.804Z",
+      "range": "bytes=75142880-75153119"
+    },
+    {
+      "resource": "model-00018-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:21:20.644Z",
+      "range": "bytes=3923680-3933919"
+    },
+    {
+      "resource": "model-00018-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:21:21.475Z",
+      "range": "bytes=2858720-2868959"
+    },
+    {
+      "resource": "model-00018-of-00018.safetensors",
+      "bytes": 10240,
+      "time": "2026-09-11T11:21:22.316Z",
+      "range": "bytes=54724320-54734559"
+    }
+  ]
+}

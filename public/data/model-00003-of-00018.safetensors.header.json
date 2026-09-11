@@ -1,0 +1,20 @@
+{
+  "headerLength": 144,
+  "headerSHA256": "26785014f43e18cd545cebad85d003854b94eb64b90079852ba7efeb8041093c",
+  "header": {
+    "__metadata__": {
+      "format": "pt"
+    },
+    "model.language_model.embed_tokens.weight": {
+      "dtype": "BF16",
+      "shape": [
+        248320,
+        5120
+      ],
+      "data_offsets": [
+        0,
+        2542796800
+      ]
+    }
+  }
+}

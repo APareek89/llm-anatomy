@@ -1,0 +1,105 @@
+{
+  "source": "[real]",
+  "revision": "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0",
+  "preTokenizer": {
+    "type": "Sequence",
+    "pretokenizers": [
+      {
+        "type": "Split",
+        "pattern": {
+          "Regex": "(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\\r\\n\\p{L}\\p{N}]?[\\p{L}\\p{M}]+|\\p{N}| ?[^\\s\\p{L}\\p{M}\\p{N}]+[\\r\\n]*|\\s*[\\r\\n]+|\\s+(?!\\S)|\\s+"
+        },
+        "behavior": "Isolated",
+        "invert": false
+      },
+      {
+        "type": "ByteLevel",
+        "add_prefix_space": false,
+        "trim_offsets": false,
+        "use_regex": false
+      }
+    ]
+  },
+  "cases": [
+    {
+      "text": "the cat sat on the mat",
+      "ids": [
+        1719,
+        7993,
+        7338,
+        383,
+        279,
+        5344
+      ],
+      "roundtrip": "the cat sat on the mat"
+    },
+    {
+      "text": "the cat sat on",
+      "ids": [
+        1719,
+        7993,
+        7338,
+        383
+      ],
+      "roundtrip": "the cat sat on"
+    },
+    {
+      "text": "the dog sat on the rug",
+      "ids": [
+        1719,
+        5388,
+        7338,
+        383,
+        279,
+        27706
+      ],
+      "roundtrip": "the dog sat on the rug"
+    },
+    {
+      "text": "Hello, world!",
+      "ids": [
+        9419,
+        11,
+        1814,
+        0
+      ],
+      "roundtrip": "Hello, world!"
+    },
+    {
+      "text": "नमस्ते मुंबई",
+      "ids": [
+        58069,
+        84237,
+        150104,
+        153348,
+        156052,
+        158581,
+        150220
+      ],
+      "roundtrip": "नमस्ते मुंबई"
+    },
+    {
+      "text": "I'm learning AI.",
+      "ids": [
+        40,
+        2688,
+        6618,
+        14791,
+        13
+      ],
+      "roundtrip": "I'm learning AI."
+    },
+    {
+      "text": "<|im_start|>user\nHi!<|im_end|>",
+      "ids": [
+        248045,
+        846,
+        198,
+        12675,
+        0,
+        248046
+      ],
+      "roundtrip": "<|im_start|>user\nHi!<|im_end|>"
+    }
+  ]
+}
